@@ -29,3 +29,23 @@ def test_evaluate_checkpoint_writes_numeric_and_visual_evidence(trained_run: dic
     assert len(sample_files) == 1
     assert len(worst_files) == 1
     assert Image.open(sample_files[0]).size == (32 * 4, 32 + 24)
+
+
+def test_evaluation_records_relative_checkpoint_path(
+    trained_run: dict[str, Path], monkeypatch
+) -> None:
+    checkpoint = trained_run["checkpoint"]
+    working_directory = checkpoint.parents[2]
+    monkeypatch.chdir(working_directory)
+    relative_checkpoint = checkpoint.relative_to(working_directory)
+
+    output = evaluate_checkpoint(
+        relative_checkpoint,
+        split="valid",
+        device="cpu",
+        sample_limit=0,
+        error_limit=0,
+    )
+
+    metrics = json.loads((output / "metrics.json").read_text())
+    assert metrics["checkpoint"] == relative_checkpoint.as_posix()

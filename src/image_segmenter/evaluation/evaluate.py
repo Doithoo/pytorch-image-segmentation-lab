@@ -140,6 +140,7 @@ def evaluate_checkpoint(
         raise ValueError("split must be train, valid, or test")
     if sample_limit < 0 or error_limit < 0:
         raise ValueError("visual sample limits must be non-negative")
+    checkpoint_record = Path(checkpoint).as_posix()
     checkpoint_path = Path(checkpoint).resolve()
     saved = load_checkpoint(checkpoint_path)
     config = config_from_dict(saved["config"])
@@ -183,7 +184,7 @@ def evaluate_checkpoint(
     pet_ious = [float(row["pet_iou"]) for row in per_image_rows]
     pet_dice = [float(row["pet_dice"]) for row in per_image_rows]
     summary = {
-        "checkpoint": str(checkpoint_path),
+        "checkpoint": checkpoint_record,
         "split": split,
         "sample_count": len(per_image_rows),
         "global": global_metrics,
