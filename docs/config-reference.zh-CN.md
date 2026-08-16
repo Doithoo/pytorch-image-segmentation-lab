@@ -11,36 +11,43 @@
   显式指定不可用设备会报错。
 - `output_dir`：运行产物根目录。
 - `run_name`：稳定的子目录名；省略时自动生成。
+- `log_level`：标准 Python 日志级别。
 
 ## 数据字段
 
+- `data.data_dir`：包含图像、mask 和可选 Oxford 标注的本地根目录。
 - `data.manifest_dir`：包含 `train.csv`、`valid.csv` 和 `test.csv` 的目录。
 - `data.image_size`：方形网络尺寸，必须为正且能被 16 整除。
 - `data.label_map`：原始整数到类别索引的映射。Oxford 使用 `{1: 1, 2: 0}`。
 - `data.ignore_values`：映射到损失忽略索引的原始值；Oxford 使用 `[3]`。
+- `data.split_ratios`：总和为 1 的通用配对数据 train/valid/test 比例；Oxford
+  改用官方划分策略。
 - `data.normalize_mean/std`：三个图像通道值。
 - `data.horizontal_flip`：训练专用的 0 到 1 概率。
-- `data.num_workers`、`pin_memory`：DataLoader 控制项。
+- `data.num_workers`、`data.pin_memory`：DataLoader 控制项。
 - `data.max_*_samples`：入门实验可选的有界子集。
+- `data.seed`：范围为 0 到 4,294,967,295 的清单划分种子。
 
 ## 模型与损失字段
 
-- `model.name`：`unet` 或 `deeplabv3_resnet50`。
+- `model.name`：`unet_small` 或 `deeplabv3_resnet50`。
 - `model.in_channels`：RGB 使用 3。
 - `model.num_classes`：背景/宠物使用 2。
 - `model.base_channels`：U-Net 第一层宽度；越大越占内存。
 - `model.pretrained`：进阶 DeepLab 权重开关；可能下载权重。
+- `loss.name`：`cross_entropy` 或 `cross_entropy_dice`。
 - `loss.cross_entropy_weight`、`loss.dice_weight`：非负，且总和必须为正。
 - `loss.ignore_index`：映射后目标值 255。
 
 ## 训练字段
 
-- `train.batch_size`、`train.epochs`、`train.lr`、`train.weight_decay`：
-  常规优化控制项。
+- `train.batch_size`、`train.epochs`：正整数优化控制项。
+- `train.lr`、`train.weight_decay`：学习率与正则化控制项。
 - `train.optimizer`：当前为 `adamw`。
 - `train.scheduler`：`none` 或 `cosine`。
-- `train.seed`：设置 Python、NumPy、PyTorch、worker 和采样随机种子。
-- `train.gradient_clip_norm`：可选最大梯度范数。
+- `train.seed`：范围为 0 到 4,294,967,295 的整数，用于设置 Python、NumPy、
+  PyTorch、worker 和采样随机种子。
+- `train.grad_clip`：可选最大梯度范数；0 表示关闭裁剪。
 
 ## 校验配置文件
 

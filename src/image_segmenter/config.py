@@ -168,12 +168,29 @@ def _positive_optional_int(key: str, value: object) -> None:
         raise ValueError(f"{key} must be null or a positive integer")
 
 
+def _positive_int(key: str, value: object) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{key} must be a positive integer")
+
+
+def _validate_seed(key: str, value: object) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value < 2**32:
+        raise ValueError(f"{key} must be an integer between 0 and {2**32 - 1}")
+
+
+def _nonempty_string(key: str, value: object) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{key} must be a non-empty string")
+
+
 def _validate_config(cfg: ExperimentConfig) -> None:
+    _nonempty_string("data.data_dir", cfg.data.data_dir)
+    _nonempty_string("data.manifest_dir", cfg.data.manifest_dir)
     if not isinstance(cfg.data.image_size, int) or isinstance(cfg.data.image_size, bool):
         raise ValueError("invalid data.image_size; expected a positive multiple of 16")
     if cfg.data.image_size <= 0 or cfg.data.image_size % 16 != 0:
         raise ValueError("invalid data.image_size; expected a positive multiple of 16")
-    if cfg.model.num_classes != 2:
+    if not isinstance(cfg.model.num_classes, int) or isinstance(cfg.model.num_classes, bool) or cfg.model.num_classes != 2:
         raise ValueError("invalid model.num_classes; expected 2")
     if not isinstance(cfg.data.label_map, dict) or set(cfg.data.label_map.values()) != {0, 1}:
         raise ValueError("invalid data.label_map; mapped classes must be exactly 0 and 1")
@@ -185,6 +202,8 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         raise ValueError("data.ignore_values must be unique")
     if set(cfg.data.label_map) & set(cfg.data.ignore_values):
         raise ValueError("data.label_map and data.ignore_values must not overlap")
+    if not isinstance(cfg.loss.ignore_index, int) or isinstance(cfg.loss.ignore_index, bool):
+        raise ValueError("loss.ignore_index must be an integer")
     if cfg.loss.ignore_index in {0, 1}:
         raise ValueError("loss.ignore_index must differ from trainable classes")
     if not isinstance(cfg.data.split_ratios, list) or len(cfg.data.split_ratios) != 3:
@@ -208,6 +227,7 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         raise ValueError("data.num_workers must be a non-negative integer")
     if not isinstance(cfg.data.pin_memory, bool):
         raise ValueError("data.pin_memory must be a boolean")
+    _validate_seed("data.seed", cfg.data.seed)
     for key, value in (
         ("data.max_train_samples", cfg.data.max_train_samples),
         ("data.max_valid_samples", cfg.data.max_valid_samples),
@@ -215,13 +235,13 @@ def _validate_config(cfg: ExperimentConfig) -> None:
     ):
         _positive_optional_int(key, value)
 
-    if not isinstance(cfg.model.in_channels, int) or cfg.model.in_channels <= 0:
-        raise ValueError("model.in_channels must be a positive integer")
-    if not isinstance(cfg.model.base_channels, int) or cfg.model.base_channels <= 0:
-        raise ValueError("model.base_channels must be a positive integer")
+    if cfg.model.name not in ("unet_small", "deeplabv3_resnet50"):
+        raise ValueError("model.name must be unet_small or deeplabv3_resnet50")
+    _positive_int("model.in_channels", cfg.model.in_channels)
+    _positive_int("model.base_channels", cfg.model.base_channels)
     if not isinstance(cfg.model.pretrained, bool):
         raise ValueError("model.pretrained must be a boolean")
-    if cfg.loss.name not in {"cross_entropy", "cross_entropy_dice"}:
+    if cfg.loss.name not in ("cross_entropy", "cross_entropy_dice"):
         raise ValueError("loss.name must be cross_entropy or cross_entropy_dice")
     if not _is_number(cfg.loss.cross_entropy_weight) or cfg.loss.cross_entropy_weight < 0:
         raise ValueError("loss.cross_entropy_weight must be non-negative")
@@ -230,10 +250,8 @@ def _validate_config(cfg: ExperimentConfig) -> None:
     if cfg.loss.cross_entropy_weight + cfg.loss.dice_weight <= 0:
         raise ValueError("at least one loss weight must be positive")
 
-    if not isinstance(cfg.train.epochs, int) or cfg.train.epochs < 1:
-        raise ValueError("train.epochs must be a positive integer")
-    if not isinstance(cfg.train.batch_size, int) or cfg.train.batch_size < 1:
-        raise ValueError("train.batch_size must be a positive integer")
+    _positive_int("train.epochs", cfg.train.epochs)
+    _positive_int("train.batch_size", cfg.train.batch_size)
     if not _is_number(cfg.train.lr) or cfg.train.lr <= 0:
         raise ValueError("train.lr must be positive")
     if not _is_number(cfg.train.weight_decay) or cfg.train.weight_decay < 0:
@@ -242,11 +260,12 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         raise ValueError("train.grad_clip must be non-negative")
     if cfg.train.optimizer != "adamw":
         raise ValueError("train.optimizer must be adamw")
-    if cfg.train.scheduler not in {"none", "cosine"}:
+    if cfg.train.scheduler not in ("none", "cosine"):
         raise ValueError("train.scheduler must be none or cosine")
-    if cfg.device not in {"auto", "cpu", "cuda", "mps"}:
+    _validate_seed("train.seed", cfg.train.seed)
+    if cfg.device not in ("auto", "cpu", "cuda", "mps"):
         raise ValueError("device must be auto, cpu, cuda, or mps")
-    if cfg.log_level not in {"debug", "info", "warning", "error", "critical"}:
+    if cfg.log_level not in ("debug", "info", "warning", "error", "critical"):
         raise ValueError("log_level must be a standard logging level")
     if not isinstance(cfg.output_dir, str) or not cfg.output_dir:
         raise ValueError("output_dir must be a non-empty string")

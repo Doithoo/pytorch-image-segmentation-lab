@@ -60,3 +60,41 @@ def test_config_from_dict_rejects_unknown_nested_key() -> None:
     raw["model"]["mystery"] = True
     with pytest.raises(ValueError, match="unknown config key: model.mystery"):
         config_from_dict(raw)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("model.in_channels", True),
+        ("model.base_channels", True),
+        ("train.epochs", True),
+        ("train.batch_size", True),
+        ("data.seed", True),
+        ("data.seed", -1),
+        ("data.seed", 2**32),
+        ("train.seed", "42"),
+    ],
+)
+def test_integer_fields_reject_booleans_and_invalid_seeds(key: str, value: object) -> None:
+    with pytest.raises(ValueError, match=key):
+        load_config(overrides={key: value})
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("data.data_dir", 1),
+        ("data.manifest_dir", None),
+        ("model.name", "missing"),
+        ("model.num_classes", 2.0),
+        ("loss.name", []),
+        ("loss.ignore_index", "255"),
+        ("loss.ignore_index", []),
+        ("train.scheduler", []),
+        ("device", []),
+        ("log_level", []),
+    ],
+)
+def test_invalid_field_types_raise_clear_value_errors(key: str, value: object) -> None:
+    with pytest.raises(ValueError, match=key):
+        load_config(overrides={key: value})
