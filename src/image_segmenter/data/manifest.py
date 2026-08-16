@@ -183,6 +183,7 @@ def _write_metadata(
     *,
     provider_name: str | None = None,
     split_method_name: str | None = None,
+    label_schema: LabelSchema | None = None,
 ) -> None:
     checksums = {split: _sha256(path) for split, path in paths.items()}
     metadata: dict[str, Any] = {
@@ -215,13 +216,14 @@ def _write_metadata(
     split_method = split_method_name or (
         "official_test_stratified_train_valid" if provider == "oxford_pet" else "random"
     )
-    label_schema = LabelSchema(
-        classes=(
-            ClassDefinition(0, "background", (32, 32, 32)),
-            ClassDefinition(1, "pet", (46, 204, 113)),
-        ),
-        ignore_index=255,
-    )
+    if label_schema is None:
+        label_schema = LabelSchema(
+            classes=(
+                ClassDefinition(0, "background", (32, 32, 32)),
+                ClassDefinition(1, "pet", (46, 204, 113)),
+            ),
+            ignore_index=255,
+        )
     prepared = PreparedDatasetMetadata.create(
         provider=provider,
         split_method=split_method,

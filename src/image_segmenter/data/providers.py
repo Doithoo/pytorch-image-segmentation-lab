@@ -23,6 +23,7 @@ from .manifest import (
     prepare_oxford_manifests,
     prepare_paired_manifests,
 )
+from .schema import LabelSchema
 
 
 def _reject_unknown_params(params: dict[str, Any], allowed: set[str]) -> None:
@@ -113,6 +114,7 @@ def _write_rows(
     seed: int | None,
     label_map: dict[int, int],
     ignore_values: set[int],
+    label_schema: LabelSchema | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     for split in ("train", "valid", "test"):
@@ -133,6 +135,7 @@ def _write_rows(
         counts,
         provider_name=provider,
         split_method_name=split_method,
+        label_schema=label_schema,
     )
     return paths
 

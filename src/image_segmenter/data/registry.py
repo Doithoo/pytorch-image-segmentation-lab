@@ -15,6 +15,7 @@ from .providers import (
     prepare_paired_provider,
     prepare_split_folders_provider,
 )
+from .voc import prepare_voc2012_provider
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,17 @@ register_dataset(
         "image-segmenter",
         prepare_paired_provider,
         parameters={"group_regex": "Optional regex used to keep related samples in one split."},
+    )
+)
+register_dataset(
+    DatasetSpec(
+        "voc2012",
+        "image-segmenter",
+        prepare_voc2012_provider,
+        parameters={
+            "test_policy": "Set to use_valid when validation is also the explicit evaluation split.",
+            "test_list": "Optional path to a labeled evaluation sample-ID list.",
+        },
     )
 )
 register_dataset(

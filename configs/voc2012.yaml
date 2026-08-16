@@ -1,0 +1,46 @@
+config_version: 2
+data:
+  name: voc2012
+  params:
+    test_policy: use_valid
+  data_dir: data/raw
+  manifest_dir: data/manifests-voc2012
+  image_size: 256
+  resize_mode: letterbox
+  crop_size: null
+  label_map: {1: 1, 2: 0}
+  ignore_values: [3]
+  split_ratios: [0.8, 0.1, 0.1]
+  seed: 666
+  num_workers: 4
+  pin_memory: true
+  horizontal_flip: 0.5
+  max_train_samples: null
+  max_valid_samples: null
+  max_test_samples: null
+model:
+  name: fcn_resnet50
+  in_channels: 3
+  expected_num_classes: 21
+  pretrained: false
+  params: {}
+loss:
+  name: cross_entropy_dice
+  cross_entropy_weight: 0.5
+  dice_weight: 0.5
+  ignore_index: 255
+train:
+  epochs: 20
+  batch_size: 4
+  lr: 0.0001
+  weight_decay: 0.0001
+  optimizer: adamw
+  scheduler: cosine
+  grad_clip: 0.0
+  seed: 42
+  amp: false
+  best_metric: mean_iou
+device: auto
+output_dir: artifacts
+run_name: voc2012-fcn
+log_level: info
