@@ -20,6 +20,8 @@ def test_evaluate_checkpoint_writes_numeric_and_visual_evidence(trained_run: dic
     assert "NaN" not in metrics_text
     assert metrics["split"] == "valid"
     assert "pet_iou" in metrics["global"]
+    for filename in ("per_class_metrics.csv", "per_image_metrics.csv"):
+        assert b"\r\n" not in (output / filename).read_bytes()
     with (output / "per_class_metrics.csv").open(newline="") as handle:
         assert {row["class_name"] for row in csv.DictReader(handle)} == {"background", "pet"}
     with (output / "per_image_metrics.csv").open(newline="") as handle:

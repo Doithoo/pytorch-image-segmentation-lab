@@ -66,7 +66,7 @@ def _per_class_rows(metrics: SegmentationMetrics) -> list[dict[str, Any]]:
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> None:
     with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({key: "" if isinstance(value, float) and math.isnan(value) else value for key, value in row.items()})
