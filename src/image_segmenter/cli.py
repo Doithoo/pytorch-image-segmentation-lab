@@ -15,6 +15,7 @@ from .config import ExperimentConfig, load_config, to_dict
 from .data import ManifestError, prepare_oxford_manifests, prepare_paired_manifests
 from .evaluation.evaluate import evaluate_checkpoint
 from .inference import Predictor
+from .models import available_models, create_model, get_model_spec, model_status
 from .training import train_from_config
 
 
@@ -128,6 +129,55 @@ def _predict(args: argparse.Namespace) -> int:
     return 0
 
 
+def _list_models(args: argparse.Namespace) -> int:
+    print("name\tprovider\tavailable\tpretrained")
+    for name in available_models(provider=args.provider):
+        spec = get_model_spec(name)
+        status = model_status(name)
+        print(
+            f"{name}\t{spec.provider}\t{'yes' if status.available else 'no'}\t"
+            f"{'yes' if spec.supports_pretrained else 'no'}"
+        )
+    return 0
+
+
+def _model_info(args: argparse.Namespace) -> int:
+    spec = get_model_spec(args.name)
+    status = model_status(args.name)
+    print(f"name: {spec.name}")
+    print(f"provider: {spec.provider}")
+    print(f"available: {'yes' if status.available else 'no'}")
+    print(f"pretrained: {'yes' if spec.supports_pretrained else 'no'}")
+    if spec.dependency is not None:
+        print(f"dependency: {spec.dependency}")
+    if status.reason is not None:
+        print(f"reason: {status.reason}")
+    if status.install_hint is not None:
+        print(f"install: {status.install_hint}")
+    if spec.parameters:
+        print("parameters:")
+        for name, description in sorted(spec.parameters.items()):
+            print(f"  {name}: {description}")
+    if spec.input_constraints:
+        print("constraints:")
+        for constraint in spec.input_constraints:
+            print(f"  - {constraint}")
+    if status.available:
+        model = create_model(
+            spec.name,
+            in_channels=3,
+            num_classes=2,
+            pretrained=False,
+            params={},
+        )
+        print(f"parameter_count: {sum(parameter.numel() for parameter in model.parameters())}")
+        print(
+            "trainable_parameter_count: "
+            f"{sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)}"
+        )
+    return 0
+
+
 def _nonnegative_int(value: str) -> int:
     parsed = int(value)
     if parsed < 0:
@@ -145,6 +195,14 @@ def main(argv: list[str] | None = None) -> int:
     show = subparsers.add_parser("show-config", help="print the resolved YAML configuration")
     _add_config_args(show)
     show.set_defaults(func=_show_config)
+
+    list_models = subparsers.add_parser("list-models", help="list registered segmentation models")
+    list_models.add_argument("--provider", default=None, help="show only one model provider")
+    list_models.set_defaults(func=_list_models)
+
+    model_info = subparsers.add_parser("model-info", help="inspect one registered model")
+    model_info.add_argument("name", help="registered model name")
+    model_info.set_defaults(func=_model_info)
 
     prepare = subparsers.add_parser("prepare-data", help="validate paired data and create manifests")
     _add_config_args(prepare)
