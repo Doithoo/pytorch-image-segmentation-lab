@@ -39,10 +39,12 @@ The saved `config.yaml` is the resolved result, not merely the input YAML.
 
 ## Checkpoint Restoration
 
-Resume validates model construction, raw label mapping, ignore index, and
-train/validation manifest hashes before loading optimizer state. Evaluation and
-prediction reconstruct the model and preprocessing from checkpoint metadata;
-they do not depend on today's config defaults.
+Resume validates model construction, raw label mapping, ignore index,
+preprocessing, loss and training semantics, and train/validation manifest
+hashes before loading optimizer state. Data paths and total epochs may change;
+other training behavior may not. Evaluation and prediction reconstruct the
+model and preprocessing from checkpoint metadata; they do not depend on
+today's config defaults.
 
 See [Config Reference](config-reference.md) for field meanings and
 [Experiments](experiments.md) for safe comparisons.

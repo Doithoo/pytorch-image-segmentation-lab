@@ -36,8 +36,9 @@ uv run segment train --config configs/learning_minimal.yaml
 
 ## 精确恢复
 
-恢复会还原模型、优化器、调度器、epoch、最佳分数和随机状态。模型设置、标签、忽略
-索引或清单哈希不匹配时会拒绝恢复。增加总 `train.epochs`，不要指向无关运行。
+恢复会还原模型、优化器、调度器、epoch、最佳分数和随机状态，包括 shuffle 序列。
+模型设置、预处理、损失与训练语义、标签、忽略索引或清单哈希不匹配时会拒绝恢复。
+数据路径可以移动，总 `train.epochs` 可以增加；不要指向无关运行。
 
 ## 阅读产物
 

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+import torch
 import yaml
 
 from image_segmenter.config import load_config
@@ -76,3 +78,32 @@ def test_existing_run_requires_resume(paired_data: Path, tmp_path: Path) -> None
         assert "already contains checkpoints" in str(exc)
     else:
         raise AssertionError("expected an existing run to be rejected")
+
+
+def test_resume_matches_uninterrupted_training(paired_data: Path, tmp_path: Path) -> None:
+    uninterrupted = _config(paired_data, tmp_path)
+    uninterrupted.run_name = "uninterrupted"
+    uninterrupted.train.epochs = 2
+    uninterrupted_dir = train_from_config(uninterrupted)
+
+    resumed = _config(paired_data, tmp_path)
+    resumed.run_name = "resumed"
+    resumed_dir = train_from_config(resumed)
+    resumed.train.epochs = 2
+    train_from_config(resumed, resume=resumed_dir / "last.pt")
+
+    uninterrupted_state = load_checkpoint(uninterrupted_dir / "last.pt")["model_state"]
+    resumed_state = load_checkpoint(resumed_dir / "last.pt")["model_state"]
+    assert uninterrupted_state.keys() == resumed_state.keys()
+    for name in uninterrupted_state:
+        assert torch.equal(uninterrupted_state[name], resumed_state[name]), name
+
+
+def test_resume_rejects_changed_training_semantics(paired_data: Path, tmp_path: Path) -> None:
+    cfg = _config(paired_data, tmp_path)
+    run_dir = train_from_config(cfg)
+    cfg.train.epochs = 2
+    cfg.train.batch_size = 1
+
+    with pytest.raises(ValueError, match="training configuration"):
+        train_from_config(cfg, resume=run_dir / "last.pt")

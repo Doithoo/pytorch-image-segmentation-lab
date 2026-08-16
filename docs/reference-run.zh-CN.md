@@ -31,8 +31,10 @@ uv run segment evaluate --checkpoint artifacts/reference-unet/best.pt \
 
 第一个 MPS 进程完成第 1-14 轮后，在第 15 轮开始前触发 Metal 高水位限制。
 进程退出时产物未损坏，并从原子写入的第 14 轮 `last.pt` 恢复。安全限制没有被
-关闭。该设备限制可能改变运行时间，但恢复过程保留了记录的优化器、调度器和
-随机状态。
+关闭。该设备限制可能改变运行时间。记录 revision 恢复了模型、优化器、调度器和
+全局随机状态，但其独立 DataLoader shuffle generator 未写入 checkpoint，因此恢复
+进程从头开始了该 shuffle 序列。运行后的回归修复移除了这项未保存状态。本次实测
+结果仍绑定记录 revision，不应视为与未中断运行逐比特等价。
 
 ## 实测结果
 

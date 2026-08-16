@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
 from torch.utils.data import DataLoader
 
 from .. import __version__
-from ..config import ExperimentConfig, dump_config, to_dict
+from ..config import ExperimentConfig, config_from_dict, dump_config, to_dict
 from ..data import SegmentationDataset, build_transform
 from ..models import create_model
 from .checkpoint import git_revision, load_checkpoint, restore_training_state
@@ -100,7 +100,9 @@ def _validate_resume(
     saved_config = checkpoint["config"]
     if not isinstance(saved_config, dict):
         raise ValueError("checkpoint config is invalid")
-    if saved_config.get("model") != to_dict(config)["model"]:
+    saved_values = to_dict(config_from_dict(saved_config))
+    current_values = to_dict(config)
+    if saved_values["model"] != current_values["model"]:
         raise ValueError("checkpoint model configuration does not match the current run")
     if checkpoint["label_map"] != config.data.label_map:
         raise ValueError("checkpoint label mapping does not match the current run")
@@ -108,6 +110,18 @@ def _validate_resume(
         raise ValueError("checkpoint ignore index does not match the current run")
     if checkpoint["manifest_checksums"] != manifest_checksums:
         raise ValueError("checkpoint manifests do not match the current run")
+    for values in (saved_values, current_values):
+        values["data"] = dict(values["data"])
+        values["data"].pop("data_dir")
+        values["data"].pop("manifest_dir")
+        values["data"].pop("label_map")
+        values["data"].pop("ignore_values")
+        values["loss"] = dict(values["loss"])
+        values["loss"].pop("ignore_index")
+        values["train"] = dict(values["train"])
+        values["train"].pop("epochs")
+    if any(saved_values[section] != current_values[section] for section in ("data", "loss", "train")):
+        raise ValueError("checkpoint training configuration does not match the current run")
 
 
 def train_from_config(
@@ -143,14 +157,13 @@ def train_from_config(
         config.loss.ignore_index,
         config.data.max_valid_samples,
     )
-    generator = torch.Generator().manual_seed(config.train.seed)
     loader_options = {
         "batch_size": config.train.batch_size,
         "num_workers": config.data.num_workers,
         "pin_memory": config.data.pin_memory,
         "worker_init_fn": _seed_worker,
     }
-    train_loader = DataLoader(train_dataset, shuffle=True, generator=generator, **loader_options)
+    train_loader = DataLoader(train_dataset, shuffle=True, **loader_options)
     valid_loader = DataLoader(valid_dataset, shuffle=False, **loader_options)
 
     model = create_model(

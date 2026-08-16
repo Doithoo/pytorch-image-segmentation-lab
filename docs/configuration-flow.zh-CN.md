@@ -36,8 +36,9 @@ uv run segment train --config configs/learning_minimal.yaml \
 
 ## Checkpoint 恢复
 
-恢复训练会先校验模型构造、原始标签映射、忽略索引以及训练/验证清单哈希，再加载
-优化器状态。评估和推理从 checkpoint 元数据重建模型与预处理，不依赖当前默认值。
+恢复训练会先校验模型构造、原始标签映射、忽略索引、预处理、损失与训练语义，
+以及训练/验证清单哈希，再加载优化器状态。数据路径与总轮数可以改变，其他训练
+行为不可改变。评估和推理从 checkpoint 元数据重建模型与预处理，不依赖当前默认值。
 
 字段含义参见[配置参考](config-reference.zh-CN.md)，安全对照方法参见
 [实验指南](experiments.zh-CN.md)。

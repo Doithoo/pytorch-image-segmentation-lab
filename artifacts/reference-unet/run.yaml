@@ -27,6 +27,7 @@ training:
   best_epoch: 24
   best_valid_pet_iou: 0.9028362531227159
   interruption: MPS high-watermark OOM before epoch 15; resumed from epoch 14
+  resume_limitation: Recorded revision restarted its uncheckpointed DataLoader shuffle sequence
 evaluation:
   split: test
   official_test_evaluations: 1

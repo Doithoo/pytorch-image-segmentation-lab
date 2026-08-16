@@ -41,8 +41,10 @@ most recent checkpoint is not automatically the best generalizing checkpoint.
 ## Resume Exactly
 
 Resume restores model, optimizer, scheduler, epoch, best score, and random
-states. It rejects mismatched model settings, labels, ignore index, or manifest
-hashes. Increase total `train.epochs`; do not point resume at an unrelated run.
+states, including the shuffle sequence. It rejects mismatched model settings,
+preprocessing, loss and training semantics, labels, ignore index, or manifest
+hashes. Data paths may move and total `train.epochs` may increase; do not point
+resume at an unrelated run.
 
 ## Read The Artifacts
 

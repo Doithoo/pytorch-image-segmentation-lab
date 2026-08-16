@@ -35,8 +35,12 @@ the final test evaluation took 122.98 seconds.
 The first MPS process completed epochs 1-14, then hit the Metal high-watermark
 limit before epoch 15. It exited without corrupting artifacts and resumed from
 the atomic epoch-14 `last.pt`. The safety limit was not disabled. This device
-limitation can change runtime, but the resumed run kept the recorded optimizer,
-scheduler, and random states.
+limitation can change runtime. The recorded revision restored model, optimizer,
+scheduler, and global random states, but its separate DataLoader shuffle
+generator was not checkpointed, so the resumed process restarted that shuffle
+sequence. A post-run regression fix removed the uncheckpointed generator. The
+measured result remains tied to the recorded revision and should not be treated
+as a bitwise-equivalent uninterrupted run.
 
 ## Measured Results
 
