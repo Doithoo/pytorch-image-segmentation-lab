@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from image_segmenter.data.manifest import ManifestError, prepare_paired_manifests
+from image_segmenter.data.manifest import ManifestError, prepare_oxford_manifests, prepare_paired_manifests
 
 
 def _rows(path: Path) -> list[dict[str, str]]:
@@ -59,3 +59,20 @@ def test_manifest_paths_resolve_from_manifest_directory(paired_data: Path, tmp_p
     row = _rows(paths["train"])[0]
     assert (output / row["image_path"]).resolve().is_file()
     assert (output / row["mask_path"]).resolve().is_file()
+
+
+def test_oxford_split_is_stratified_and_official_test_is_untouched(oxford_data: Path, tmp_path: Path) -> None:
+    output = tmp_path / "manifests"
+    paths = prepare_oxford_manifests(
+        oxford_data, output, seed=11, label_map={1: 1, 2: 0}, ignore_values={3}
+    )
+    train_rows = _rows(paths["train"])
+    valid_rows = _rows(paths["valid"])
+    test_rows = _rows(paths["test"])
+    assert len(train_rows) == 6
+    assert len(valid_rows) == 2
+    assert {row["sample_id"] for row in test_rows} == {"breed_a_04", "breed_b_04"}
+    assert {row["breed"] for row in train_rows} == {"breed_a", "breed_b"}
+    assert {row["source_split"] for row in test_rows} == {"test"}
+    assert (output / "source.yaml").is_file()
+    assert "train: 6" in (output / "summary.txt").read_text()

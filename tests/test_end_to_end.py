@@ -102,3 +102,22 @@ def test_predict_image_through_cli(trained_run: dict[str, Path], tmp_path: Path)
     )
     assert output.is_file()
     assert output.with_name("prediction.overlay.png").is_file()
+
+
+def test_prepare_data_auto_detects_oxford_splits(oxford_data: Path, tmp_path: Path) -> None:
+    manifests = tmp_path / "oxford-manifests"
+    assert (
+        main(
+            [
+                "prepare-data",
+                "--data-dir",
+                str(oxford_data),
+                "--manifest-dir",
+                str(manifests),
+                "--source-format",
+                "auto",
+            ]
+        )
+        == 0
+    )
+    assert "train: 6" in (manifests / "summary.txt").read_text()

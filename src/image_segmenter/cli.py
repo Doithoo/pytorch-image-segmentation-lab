@@ -12,7 +12,7 @@ import yaml
 
 from . import __version__
 from .config import ExperimentConfig, load_config, to_dict
-from .data import ManifestError, prepare_paired_manifests
+from .data import ManifestError, prepare_oxford_manifests, prepare_paired_manifests
 from .evaluation.evaluate import evaluate_checkpoint
 from .inference import Predictor
 from .training import train_from_config
@@ -63,14 +63,27 @@ def _prepare_data(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     data_dir = args.data_dir or config.data.data_dir
     manifest_dir = args.manifest_dir or config.data.manifest_dir
-    paths = prepare_paired_manifests(
-        data_dir,
-        manifest_dir,
-        config.data.split_ratios,
-        config.data.seed,
-        config.data.label_map,
-        set(config.data.ignore_values),
-    )
+    source_format = args.source_format
+    if source_format == "auto":
+        annotations = Path(data_dir) / "annotations"
+        source_format = "oxford-pet" if (annotations / "trainval.txt").is_file() and (annotations / "test.txt").is_file() else "paired"
+    if source_format == "oxford-pet":
+        paths = prepare_oxford_manifests(
+            data_dir,
+            manifest_dir,
+            config.data.seed,
+            config.data.label_map,
+            set(config.data.ignore_values),
+        )
+    else:
+        paths = prepare_paired_manifests(
+            data_dir,
+            manifest_dir,
+            config.data.split_ratios,
+            config.data.seed,
+            config.data.label_map,
+            set(config.data.ignore_values),
+        )
     for split in ("train", "valid", "test"):
         print(f"{split}: {paths[split]}")
     return 0
@@ -133,6 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     _add_config_args(prepare)
     prepare.add_argument("--data-dir", type=str, default=None, help="root containing images/ and masks/")
     prepare.add_argument("--manifest-dir", type=str, default=None, help="manifest output directory")
+    prepare.add_argument(
+        "--source-format",
+        choices=("auto", "paired", "oxford-pet"),
+        default="auto",
+        help="split convention (default: detect Oxford official files)",
+    )
     prepare.set_defaults(func=_prepare_data)
 
     train = subparsers.add_parser("train", help="train a configured segmentation model")

@@ -22,6 +22,31 @@ def paired_data(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def oxford_data(tmp_path: Path) -> Path:
+    root = tmp_path / "oxford"
+    (root / "images").mkdir(parents=True)
+    (root / "masks").mkdir(parents=True)
+    (root / "annotations").mkdir(parents=True)
+    trainval: list[str] = []
+    test: list[str] = []
+    for breed_index, breed in enumerate(("breed_a", "breed_b"), start=1):
+        for image_index in range(5):
+            sample_id = f"{breed}_{image_index:02d}"
+            Image.new("RGB", (24, 24), color=(breed_index * 40, image_index * 10, 80)).save(
+                root / "images" / f"{sample_id}.jpg"
+            )
+            mask = np.full((24, 24), 2, dtype=np.uint8)
+            mask[5:19, 5:19] = 1
+            mask[4, 4:20] = 3
+            Image.fromarray(mask).save(root / "masks" / f"{sample_id}.png")
+            line = f"{sample_id} {breed_index} 1 {breed_index}"
+            (test if image_index == 4 else trainval).append(line)
+    (root / "annotations" / "trainval.txt").write_text("\n".join(trainval) + "\n")
+    (root / "annotations" / "test.txt").write_text("\n".join(test) + "\n")
+    return root
+
+
+@pytest.fixture
 def trained_run(paired_data: Path, tmp_path: Path) -> dict[str, Path]:
     from image_segmenter.config import load_config
     from image_segmenter.data.manifest import prepare_paired_manifests

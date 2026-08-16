@@ -1,4 +1,4 @@
-"""Validate paired image/mask directories and write portable manifests."""
+"""Validate paired segmentation data and write portable split manifests."""
 
 from __future__ import annotations
 
@@ -10,12 +10,23 @@ import random
 import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import yaml
 from PIL import Image, UnidentifiedImageError
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
-MANIFEST_FIELDS = ("sample_id", "image_path", "mask_path", "split", "width", "height")
+MANIFEST_FIELDS = (
+    "sample_id",
+    "image_path",
+    "mask_path",
+    "split",
+    "width",
+    "height",
+    "breed",
+    "source_split",
+)
 INVALID_FIELDS = ("sample_id", "path", "reason")
 
 
@@ -29,6 +40,17 @@ class ManifestRow:
     split: str
     width: int
     height: int
+    breed: str = ""
+    source_split: str = ""
+
+
+@dataclass(frozen=True)
+class _ValidatedSample:
+    sample_id: str
+    image_path: Path
+    mask_path: Path
+    width: int
+    height: int
 
 
 class ManifestError(ValueError):
@@ -40,7 +62,8 @@ def _indexed_files(root: Path, suffixes: set[str]) -> tuple[dict[str, Path], lis
     invalid: list[dict[str, str]] = []
     if not root.is_dir():
         return indexed, [{"sample_id": "", "path": str(root), "reason": "directory not found"}]
-    for path in sorted(item for item in root.rglob("*") if item.is_file() and item.suffix.lower() in suffixes):
+    paths = sorted(item for item in root.rglob("*") if item.is_file() and item.suffix.lower() in suffixes)
+    for path in paths:
         sample_id = path.relative_to(root).with_suffix("").as_posix()
         if sample_id in indexed:
             invalid.append({"sample_id": sample_id, "path": str(path), "reason": "duplicate relative path stem"})
@@ -71,35 +94,26 @@ def _relative_path(path: Path, manifest_dir: Path) -> str:
     return Path(os.path.relpath(path, manifest_dir)).as_posix()
 
 
-def prepare_paired_manifests(
-    data_dir: str | Path,
-    manifest_dir: str | Path,
-    split_ratios: list[float],
-    seed: int,
+def _validate_source(
+    source: Path,
+    output: Path,
     label_map: dict[int, int],
     ignore_values: set[int],
-) -> dict[str, Path]:
-    """Validate paired directories and create deterministic train/valid/test CSVs."""
-    source = Path(data_dir).resolve()
-    output = Path(manifest_dir).resolve()
-    if len(split_ratios) != 3 or any(value < 0 for value in split_ratios) or abs(sum(split_ratios) - 1.0) > 1e-9:
-        raise ValueError("split_ratios must contain three non-negative values summing to 1")
+) -> list[_ValidatedSample]:
     if set(label_map.values()) != {0, 1}:
         raise ValueError("label_map must map raw values to background 0 and foreground 1")
     if set(label_map) & ignore_values:
         raise ValueError("label_map and ignore_values must not overlap")
-
     images, invalid = _indexed_files(source / "images", IMAGE_SUFFIXES)
-    masks, mask_index_errors = _indexed_files(source / "masks", {".png"})
-    invalid.extend(mask_index_errors)
-    all_sample_ids = sorted(set(images) | set(masks))
-    valid_samples: list[tuple[str, Path, Path, int, int]] = []
+    masks, mask_errors = _indexed_files(source / "masks", {".png"})
+    invalid.extend(mask_errors)
+    valid_samples: list[_ValidatedSample] = []
     seen_content: dict[tuple[str, str], str] = {}
     foreground_values = {raw_value for raw_value, class_index in label_map.items() if class_index == 1}
     allowed_values = set(label_map) | ignore_values
     empty_foreground_count = 0
 
-    for sample_id in all_sample_ids:
+    for sample_id in sorted(set(images) | set(masks)):
         image_path = images.get(sample_id)
         mask_path = masks.get(sample_id)
         if image_path is None:
@@ -132,7 +146,7 @@ def prepare_paired_manifests(
             if duplicate_of is not None:
                 raise ValueError(f"exact duplicate of {duplicate_of}")
             seen_content[content_key] = sample_id
-            valid_samples.append((sample_id, image_path, mask_path, width, height))
+            valid_samples.append(_ValidatedSample(sample_id, image_path, mask_path, width, height))
         except (OSError, UnidentifiedImageError, ValueError) as exc:
             invalid.append({"sample_id": sample_id, "path": str(mask_path), "reason": str(exc)})
 
@@ -144,35 +158,177 @@ def prepare_paired_manifests(
         raise ManifestError("found no valid paired samples")
     if empty_foreground_count:
         noun = "sample has" if empty_foreground_count == 1 else "samples have"
-        warnings.warn(f"{empty_foreground_count} {noun} no foreground; retained as negative data", UserWarning, stacklevel=2)
+        warnings.warn(f"{empty_foreground_count} {noun} no foreground; retained as negative data", UserWarning, stacklevel=3)
+    return valid_samples
 
-    random.Random(seed).shuffle(valid_samples)
-    total = len(valid_samples)
-    train_count = math.floor(total * split_ratios[0])
-    valid_count = math.floor(total * split_ratios[1])
-    boundaries = (train_count, train_count + valid_count, total)
-    split_items = {
-        "train": valid_samples[: boundaries[0]],
-        "valid": valid_samples[boundaries[0] : boundaries[1]],
-        "test": valid_samples[boundaries[1] : boundaries[2]],
+
+def _write_metadata(
+    output: Path,
+    source: Path,
+    dataset_type: str,
+    seed: int,
+    label_map: dict[int, int],
+    ignore_values: set[int],
+    paths: dict[str, Path],
+    counts: dict[str, int],
+) -> None:
+    checksums = {split: _sha256(path) for split, path in paths.items()}
+    metadata: dict[str, Any] = {
+        "dataset": dataset_type,
+        "data_dir": _relative_path(source, output),
+        "seed": seed,
+        "label_map": label_map,
+        "ignore_values": sorted(ignore_values),
+        "split_counts": counts,
+        "manifest_sha256": checksums,
+        "exact_duplicate_audit": "passed",
     }
+    if dataset_type == "oxford-iiit-pet":
+        metadata["source_url"] = "https://www.robots.ox.ac.uk/~vgg/data/pets/"
+        metadata["license"] = "Creative Commons Attribution-ShareAlike 4.0 International"
+    (output / "source.yaml").write_text(yaml.safe_dump(metadata, sort_keys=False))
+    summary = [
+        f"dataset: {dataset_type}",
+        f"seed: {seed}",
+        *(f"{split}: {counts[split]}" for split in ("train", "valid", "test")),
+        f"label_map: {label_map}",
+        f"ignore_values: {sorted(ignore_values)}",
+        *(f"{split}_sha256: {checksums[split]}" for split in ("train", "valid", "test")),
+        "exact_duplicate_audit: passed",
+    ]
+    (output / "summary.txt").write_text("\n".join(summary) + "\n")
 
-    result: dict[str, Path] = {}
-    for split, items in split_items.items():
+
+def _write_manifests(
+    output: Path,
+    source: Path,
+    split_items: dict[str, list[tuple[_ValidatedSample, str, str]]],
+    dataset_type: str,
+    seed: int,
+    label_map: dict[int, int],
+    ignore_values: set[int],
+) -> dict[str, Path]:
+    paths: dict[str, Path] = {}
+    for split in ("train", "valid", "test"):
         rows = [
             asdict(
                 ManifestRow(
-                    sample_id=sample_id,
-                    image_path=_relative_path(image_path, output),
-                    mask_path=_relative_path(mask_path, output),
+                    sample_id=sample.sample_id,
+                    image_path=_relative_path(sample.image_path, output),
+                    mask_path=_relative_path(sample.mask_path, output),
                     split=split,
-                    width=width,
-                    height=height,
+                    width=sample.width,
+                    height=sample.height,
+                    breed=breed,
+                    source_split=source_split,
                 )
             )
-            for sample_id, image_path, mask_path, width, height in items
+            for sample, breed, source_split in split_items[split]
         ]
         path = output / f"{split}.csv"
         _write_dict_rows(path, MANIFEST_FIELDS, rows)
-        result[split] = path
-    return result
+        paths[split] = path
+    counts = {split: len(items) for split, items in split_items.items()}
+    _write_metadata(output, source, dataset_type, seed, label_map, ignore_values, paths, counts)
+    return paths
+
+
+def prepare_paired_manifests(
+    data_dir: str | Path,
+    manifest_dir: str | Path,
+    split_ratios: list[float],
+    seed: int,
+    label_map: dict[int, int],
+    ignore_values: set[int],
+) -> dict[str, Path]:
+    """Create deterministic random splits for a generic paired dataset."""
+    source = Path(data_dir).resolve()
+    output = Path(manifest_dir).resolve()
+    if len(split_ratios) != 3 or any(value < 0 for value in split_ratios) or abs(sum(split_ratios) - 1.0) > 1e-9:
+        raise ValueError("split_ratios must contain three non-negative values summing to 1")
+    samples = _validate_source(source, output, label_map, ignore_values)
+    random.Random(seed).shuffle(samples)
+    train_count = math.floor(len(samples) * split_ratios[0])
+    valid_count = math.floor(len(samples) * split_ratios[1])
+    first = train_count
+    second = train_count + valid_count
+    split_samples = {
+        "train": samples[:first],
+        "valid": samples[first:second],
+        "test": samples[second:],
+    }
+    annotated = {
+        split: [(sample, "", "provided") for sample in split_values]
+        for split, split_values in split_samples.items()
+    }
+    return _write_manifests(output, source, annotated, "paired-directory", seed, label_map, ignore_values)
+
+
+def _read_oxford_split(path: Path) -> list[str]:
+    if not path.is_file():
+        raise FileNotFoundError(f"Oxford split file not found: {path}")
+    sample_ids: list[str] = []
+    for line_number, line in enumerate(path.read_text().splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = stripped.split()
+        if len(parts) != 4:
+            raise ManifestError(f"invalid Oxford split line {path}:{line_number}")
+        sample_ids.append(parts[0])
+    if len(sample_ids) != len(set(sample_ids)):
+        raise ManifestError(f"duplicate sample IDs in Oxford split: {path}")
+    return sample_ids
+
+
+def _breed_name(sample_id: str) -> str:
+    name, separator, suffix = sample_id.rpartition("_")
+    if not separator or not suffix.isdigit() or not name:
+        raise ManifestError(f"cannot derive Oxford breed from sample ID: {sample_id}")
+    return name
+
+
+def prepare_oxford_manifests(
+    data_dir: str | Path,
+    manifest_dir: str | Path,
+    seed: int,
+    label_map: dict[int, int],
+    ignore_values: set[int],
+) -> dict[str, Path]:
+    """Preserve official test data and split trainval within every breed."""
+    source = Path(data_dir).resolve()
+    output = Path(manifest_dir).resolve()
+    samples = _validate_source(source, output, label_map, ignore_values)
+    by_id = {sample.sample_id: sample for sample in samples}
+    trainval_ids = _read_oxford_split(source / "annotations" / "trainval.txt")
+    test_ids = _read_oxford_split(source / "annotations" / "test.txt")
+    if set(trainval_ids) & set(test_ids):
+        raise ManifestError("Oxford trainval and test splits overlap")
+    listed = set(trainval_ids) | set(test_ids)
+    if listed != set(by_id):
+        missing = sorted(set(by_id) - listed)
+        unknown = sorted(listed - set(by_id))
+        raise ManifestError(f"Oxford split membership mismatch; unlisted={missing[:5]}, missing_files={unknown[:5]}")
+
+    groups: dict[str, list[str]] = {}
+    for sample_id in trainval_ids:
+        groups.setdefault(_breed_name(sample_id), []).append(sample_id)
+    train_items: list[tuple[_ValidatedSample, str, str]] = []
+    valid_items: list[tuple[_ValidatedSample, str, str]] = []
+    for breed in sorted(groups):
+        breed_ids = sorted(groups[breed])
+        random.Random(f"{seed}:{breed}").shuffle(breed_ids)
+        train_count = (
+            1
+            if len(breed_ids) == 1
+            else min(len(breed_ids) - 1, max(1, math.floor(len(breed_ids) * 0.8)))
+        )
+        train_items.extend((by_id[sample_id], breed, "trainval") for sample_id in breed_ids[:train_count])
+        valid_items.extend((by_id[sample_id], breed, "trainval") for sample_id in breed_ids[train_count:])
+    test_items = [(by_id[sample_id], _breed_name(sample_id), "test") for sample_id in test_ids]
+    split_items = {
+        "train": sorted(train_items, key=lambda item: item[0].sample_id),
+        "valid": sorted(valid_items, key=lambda item: item[0].sample_id),
+        "test": test_items,
+    }
+    return _write_manifests(output, source, split_items, "oxford-iiit-pet", seed, label_map, ignore_values)

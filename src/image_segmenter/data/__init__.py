@@ -1,7 +1,7 @@
 """Data preparation and loading public API."""
 
 from .dataset import SegmentationDataset, map_mask
-from .manifest import ManifestError, ManifestRow, prepare_paired_manifests
+from .manifest import ManifestError, ManifestRow, prepare_oxford_manifests, prepare_paired_manifests
 from .transforms import ImageTransform, PairedTransform, build_transform
 
 __all__ = [
@@ -12,5 +12,6 @@ __all__ = [
     "SegmentationDataset",
     "build_transform",
     "map_mask",
+    "prepare_oxford_manifests",
     "prepare_paired_manifests",
 ]
