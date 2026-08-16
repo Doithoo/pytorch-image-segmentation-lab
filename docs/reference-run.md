@@ -23,32 +23,70 @@ uv run segment evaluate --checkpoint artifacts/reference-unet/best.pt \
 
 ## Environment
 
-Status: pending measured reference execution. The release record will include
-OS, processor or accelerator, Python, PyTorch, torchvision, package revision,
-wall-clock time, and device limitations.
+The run used macOS 26.5.2 on Apple arm64 with MPS, Python 3.11.15, PyTorch
+2.13.0, and torchvision 0.28.0. The training code revision was
+`1deff1a03ba2d4549c538b4eef36df3868abe92b`.
+
+Training started at `2026-08-16T04:35:04Z` and finished at
+`2026-08-16T09:55:57Z`. End-to-end wall time was 19,253 seconds (5:20:53),
+including one restart. The resumed epoch 15-25 process took 7,910.98 seconds;
+the final test evaluation took 122.98 seconds.
+
+The first MPS process completed epochs 1-14, then hit the Metal high-watermark
+limit before epoch 15. It exited without corrupting artifacts and resumed from
+the atomic epoch-14 `last.pt`. The safety limit was not disabled. This device
+limitation can change runtime, but the resumed run kept the recorded optimizer,
+scheduler, and random states.
 
 ## Measured Results
 
-Status: pending measured reference execution. No score is claimed before the
-committed `metrics.json` and manifest checksums exist. Release acceptance
-requires test pet IoU at least 0.70.
+The best checkpoint was epoch 24 with validation pet IoU `0.902836`. It was
+evaluated once on all 3,669 official test samples and exceeded the required
+test pet IoU of 0.70.
 
-The final table will name global pet IoU, pet Dice, mean IoU, pixel accuracy,
-valid/ignored pixels, sample count, and mean per-image pet IoU separately.
+| Metric | Measured value |
+| --- | ---: |
+| Test pet IoU, global | 0.906669 |
+| Test pet Dice, global | 0.951050 |
+| Test background IoU, global | 0.950423 |
+| Test mean IoU, global | 0.928546 |
+| Test pixel accuracy | 0.966539 |
+| Test pet IoU, mean per image | 0.905472 |
+| Valid pixels | 210,899,866 |
+| Ignored pixels | 29,551,718 |
+| Test samples | 3,669 |
+| Empty-target samples | 7 |
+
+The committed evidence includes the [effective configuration](../artifacts/reference-unet/config.yaml),
+[run metadata](../artifacts/reference-unet/run.yaml), [25-epoch metrics](../artifacts/reference-unet/metrics.csv),
+[best checkpoint](../artifacts/reference-unet/best.pt), [evaluation summary](../artifacts/reference-unet/evaluation/metrics.json),
+[per-class table](../artifacts/reference-unet/evaluation/per_class_metrics.csv),
+[per-image table](../artifacts/reference-unet/evaluation/per_image_metrics.csv),
+[loss curve](../artifacts/reference-unet/evaluation/loss_curve.png), and
+[dataset preview](../artifacts/reference-unet/dataset_preview.png). Bounded
+[sample overlays](../artifacts/reference-unet/evaluation/sample_overlays) and
+[worst cases](../artifacts/reference-unet/evaluation/worst_cases) support visual
+inspection.
 
 ## Interpretation
 
-The result will demonstrate that the checked-in pipeline can learn useful pet
-masks under the recorded conditions. It will not establish state of the art,
+The result demonstrates that the checked-in pipeline learns useful pet masks
+under the recorded conditions. It does not establish state of the art,
 guarantee an identical score across hardware, or validate other datasets.
 
 Inspect the loss curve, representative overlays, and worst cases alongside the
 score. Background leakage, missed thin structures, and ignored trimap regions
-can reveal limitations hidden by one aggregate number.
+reveal limitations hidden by one aggregate number. Seven official test masks
+contain only raw value 2, so they have no target foreground. Visual inspection
+also found inverted or spatially inconsistent upstream trimaps among the lowest
+per-image IoU cases. These samples remain untouched and are included in every
+reported aggregate.
 
 ## Reproduce Or Audit
 
-Use `source.yaml` and manifest SHA-256 values to confirm split identity. Compare
-the saved effective `config.yaml` rather than trusting the config filename.
-Check checkpoint metadata for package and Git revisions. See
+Use [source.yaml](../data/manifests/source.yaml) and its manifest SHA-256 values
+to confirm split identity: train `f7e7af...737171`, valid `872ed4...a5897d`,
+and test `619642...f757c`. Full artifact hashes are recorded in `run.yaml`.
+Compare the saved effective `config.yaml` rather than trusting the config
+filename. Check checkpoint metadata for package and Git revisions. See
 [Experiments](experiments.md) before changing a variable.

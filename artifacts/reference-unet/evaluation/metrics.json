@@ -1,0 +1,19 @@
+{
+  "checkpoint": "artifacts/reference-unet/best.pt",
+  "empty_target_count": 7,
+  "global": {
+    "background_iou": 0.9504230213955296,
+    "macro_dice": 0.9628157365245924,
+    "mean_iou": 0.92854584324967,
+    "pet_dice": 0.9510500504862978,
+    "pet_iou": 0.9066686651038105,
+    "pixel_accuracy": 0.9665385847139419,
+    "valid_pixels": 210899866
+  },
+  "per_image_mean": {
+    "pet_dice": 0.9429736512840239,
+    "pet_iou": 0.9054719925012448
+  },
+  "sample_count": 3669,
+  "split": "test"
+}
