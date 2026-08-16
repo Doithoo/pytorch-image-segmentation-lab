@@ -6,10 +6,21 @@ build-backend = "setuptools.build_meta"
 name = "image-segmenter"
 version = "0.1.0"
 description = "Beginner-oriented reproducible PyTorch semantic segmentation"
+readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Yashowhoo" }]
+keywords = ["pytorch", "semantic-segmentation", "unet", "computer-vision", "education"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "torch>=2.0,<3",
     "torchvision>=0.15,<1",
@@ -25,8 +36,16 @@ dev = [
     "pre-commit>=3,<5",
     "build>=1.2,<2",
     "twine>=5,<7",
+    "matplotlib>=3.6,<4",
+    "tomli>=2,<3; python_version < '3.11'",
 ]
 plot = ["matplotlib>=3.6,<4"]
+
+[project.urls]
+Homepage = "https://github.com/Doithoo/pytorch-image-segmentation-lab"
+Repository = "https://github.com/Doithoo/pytorch-image-segmentation-lab"
+Documentation = "https://github.com/Doithoo/pytorch-image-segmentation-lab#readme"
+Issues = "https://github.com/Doithoo/pytorch-image-segmentation-lab/issues"
 
 [project.scripts]
 segment = "image_segmenter.cli:main"
@@ -36,6 +55,9 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 image_segmenter = ["py.typed"]
+
+[tool.setuptools.data-files]
+"share/image-segmenter/configs" = ["configs/*.yaml"]
 
 [tool.ruff]
 line-length = 120

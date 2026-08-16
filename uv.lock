@@ -497,9 +497,12 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "build" },
+    { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "matplotlib", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "twine" },
 ]
 plot = [
@@ -510,6 +513,7 @@ plot = [
 [package.metadata]
 requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2,<2" },
+    { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.6,<4" },
     { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.6,<4" },
     { name = "numpy", specifier = ">=1.24,<3" },
     { name = "pillow", specifier = ">=9,<12" },
@@ -517,6 +521,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7,<9" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6,<1" },
+    { name = "tomli", marker = "python_full_version < '3.11' and extra == 'dev'", specifier = ">=2,<3" },
     { name = "torch", specifier = ">=2.0,<3" },
     { name = "torchvision", specifier = ">=0.15,<1" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=5,<7" },

@@ -1,0 +1,49 @@
+name: Bug report / 缺陷报告
+description: Report reproducible incorrect behavior. / 报告可复现的错误行为。
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Preferred language / 首选语言
+      options:
+        - English
+        - 简体中文
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior / 实际行为
+      description: Include the complete error and what happened. / 请提供完整错误和实际现象。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction / 最小复现
+      description: Include commands, config overrides, and synthetic data when possible. / 尽量提供命令、配置覆盖和合成数据。
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 环境
+      description: OS, Python, PyTorch, device, and repository revision. / 操作系统、Python、PyTorch、设备和仓库 revision。
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Data safety / 数据安全
+      options:
+        - label: I removed private data, credentials, and large files. / 已移除私有数据、凭据和大文件。
+          required: true

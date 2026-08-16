@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Learning documentation / 学习文档
+    url: https://github.com/Doithoo/pytorch-image-segmentation-lab#learn-in-small-steps
+    about: Check the guided curriculum before opening a question. / 提问前请先查看学习路径。

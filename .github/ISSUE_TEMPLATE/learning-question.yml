@@ -1,0 +1,35 @@
+name: Learning question / 学习问题
+description: Ask about a documented segmentation concept. / 询问文档中的分割概念。
+title: "[Learning]: "
+labels: [question]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Preferred language / 首选语言
+      options:
+        - English
+        - 简体中文
+    validations:
+      required: true
+  - type: input
+    id: chapter
+    attributes:
+      label: Chapter or example / 章节或示例
+      placeholder: "Tutorial 02 / examples/02_paired_transform.py"
+    validations:
+      required: true
+  - type: textarea
+    id: understanding
+    attributes:
+      label: Current understanding / 当前理解
+      description: Explain what you think happens before asking what is unclear. / 先说明你的理解，再指出困惑。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Command and output / 命令与输出
+      render: shell
+    validations:
+      required: true
