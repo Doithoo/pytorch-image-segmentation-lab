@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 
 from ..config import ExperimentConfig
-from ..evaluation import SegmentationMetrics
+from ..evaluation.metrics import SegmentationMetrics
 from .checkpoint import save_checkpoint
 from .losses import SegmentationLoss
 
