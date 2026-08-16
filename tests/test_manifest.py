@@ -1,0 +1,61 @@
+import csv
+from pathlib import Path
+
+import pytest
+from PIL import Image
+
+from image_segmenter.data.manifest import ManifestError, prepare_paired_manifests
+
+
+def _rows(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def test_prepare_pairs_and_splits_deterministically(paired_data: Path, tmp_path: Path) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    prepare_paired_manifests(
+        paired_data, first, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3}
+    )
+    prepare_paired_manifests(
+        paired_data, second, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3}
+    )
+    assert [len(_rows(first / f"{split}.csv")) for split in ("train", "valid", "test")] == [8, 1, 1]
+    assert [row["sample_id"] for row in _rows(first / "train.csv")] == [
+        row["sample_id"] for row in _rows(second / "train.csv")
+    ]
+
+
+def test_missing_mask_is_reported_with_invalid_csv(paired_data: Path, tmp_path: Path) -> None:
+    (paired_data / "masks" / "sample_00.png").unlink()
+    output = tmp_path / "manifests"
+    with pytest.raises(ManifestError, match="1 invalid sample"):
+        prepare_paired_manifests(
+            paired_data, output, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3}
+        )
+    assert "missing mask" in (output / "invalid.csv").read_text()
+
+
+def test_empty_foreground_warns_but_is_retained(paired_data: Path, tmp_path: Path) -> None:
+    Image.new("L", (32, 32), color=2).save(paired_data / "masks" / "sample_00.png")
+    with pytest.warns(UserWarning, match="1 sample has no foreground"):
+        paths = prepare_paired_manifests(
+            paired_data,
+            tmp_path / "manifests",
+            [0.8, 0.1, 0.1],
+            seed=7,
+            label_map={1: 1, 2: 0},
+            ignore_values={3},
+        )
+    assert sum(len(_rows(path)) for path in paths.values()) == 10
+
+
+def test_manifest_paths_resolve_from_manifest_directory(paired_data: Path, tmp_path: Path) -> None:
+    output = tmp_path / "nested" / "manifests"
+    paths = prepare_paired_manifests(
+        paired_data, output, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3}
+    )
+    row = _rows(paths["train"])[0]
+    assert (output / row["image_path"]).resolve().is_file()
+    assert (output / row["mask_path"]).resolve().is_file()
