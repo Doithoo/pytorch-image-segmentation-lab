@@ -17,6 +17,9 @@ import numpy as np
 import yaml
 from PIL import Image, UnidentifiedImageError
 
+from .metadata import PreparedDatasetMetadata, write_dataset_metadata
+from .schema import ClassDefinition, LabelSchema
+
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 MANIFEST_FIELDS = (
     "sample_id",
@@ -203,6 +206,29 @@ def _write_metadata(
         *(f"{key}: {value}" for key, value in (audit or {}).items()),
     ]
     (output / "summary.txt").write_text("\n".join(summary) + "\n")
+    provider = "oxford_pet" if dataset_type == "oxford-iiit-pet" else "paired_masks"
+    split_method = "official_test_stratified_train_valid" if provider == "oxford_pet" else "random"
+    label_schema = LabelSchema(
+        classes=(
+            ClassDefinition(0, "background", (32, 32, 32)),
+            ClassDefinition(1, "pet", (46, 204, 113)),
+        ),
+        ignore_index=255,
+    )
+    prepared = PreparedDatasetMetadata.create(
+        provider=provider,
+        split_method=split_method,
+        seed=seed,
+        data_dir=_relative_path(source, output),
+        manifests={split: _relative_path(path, output) for split, path in paths.items()},
+        split_counts=counts,
+        label_schema=label_schema,
+        root=output,
+        label_map=label_map,
+        ignore_values=tuple(sorted(ignore_values)),
+        audit={"exact_duplicate_audit": "passed", **(audit or {})},
+    )
+    write_dataset_metadata(output / "dataset.yaml", prepared)
 
 
 def _write_manifests(
