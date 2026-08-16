@@ -18,6 +18,7 @@ from ..data import LabelSchema
 from ..evaluation.metrics import SegmentationMetrics
 from .checkpoint import save_checkpoint
 from .losses import SegmentationLoss
+from .precision import PrecisionController
 
 METRIC_FIELDS = ("epoch", "train_loss", "train_pet_iou", "valid_loss", "valid_pet_iou", "lr")
 
@@ -36,6 +37,7 @@ class Trainer:
         run_dir: Path,
         manifest_checksums: dict[str, str],
         label_schema: LabelSchema,
+        precision: PrecisionController,
     ) -> None:
         self.model = model
         self.criterion = criterion
@@ -46,6 +48,7 @@ class Trainer:
         self.run_dir = run_dir
         self.manifest_checksums = manifest_checksums
         self.label_schema = label_schema
+        self.precision = precision
 
     def _metric_keys(self) -> list[str]:
         keys = ["mean_iou", "mean_dice", "pixel_accuracy"]
@@ -69,12 +72,15 @@ class Trainer:
         masks = masks.to(self.device)
         self.model.train()
         self.optimizer.zero_grad(set_to_none=True)
-        logits = self.model(images)
-        loss, _components = self.criterion(logits, masks)
-        loss.backward()
-        if self.config.train.grad_clip > 0:
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.train.grad_clip)
-        self.optimizer.step()
+        with self.precision.autocast():
+            logits = self.model(images)
+            loss, _components = self.criterion(logits, masks)
+        self.precision.backward_step(
+            loss,
+            self.optimizer,
+            self.model.parameters(),
+            grad_clip=self.config.train.grad_clip,
+        )
         valid_ratio = float((masks != self.config.loss.ignore_index).float().mean().item())
         print(f"device: {self.device}")
         print(f"images: {tuple(images.shape)}")
@@ -101,14 +107,16 @@ class Trainer:
             masks = masks.to(self.device)
             if training:
                 self.optimizer.zero_grad(set_to_none=True)
-            with torch.set_grad_enabled(training):
+            with torch.set_grad_enabled(training), self.precision.autocast():
                 logits = self.model(images)
                 loss, _components = self.criterion(logits, masks)
             if training:
-                loss.backward()
-                if self.config.train.grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.train.grad_clip)
-                self.optimizer.step()
+                self.precision.backward_step(
+                    loss,
+                    self.optimizer,
+                    self.model.parameters(),
+                    grad_clip=self.config.train.grad_clip,
+                )
             metrics.update(logits.detach(), masks)
             loss_sum += loss.detach().item() * images.shape[0]
             sample_count += images.shape[0]
@@ -171,6 +179,7 @@ class Trainer:
                         cfg=self.config,
                         manifest_checksums=self.manifest_checksums,
                         label_schema=self.label_schema,
+                        precision_state=self.precision.state_dict(),
                     )
                 save_checkpoint(
                     self.run_dir / "last.pt",
@@ -182,6 +191,7 @@ class Trainer:
                     cfg=self.config,
                     manifest_checksums=self.manifest_checksums,
                     label_schema=self.label_schema,
+                    precision_state=self.precision.state_dict(),
                 )
                 print(
                     f"epoch {epoch}/{self.config.train.epochs} "

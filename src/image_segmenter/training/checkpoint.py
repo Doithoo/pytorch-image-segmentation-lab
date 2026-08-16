@@ -18,6 +18,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from .. import __version__
 from ..config import ExperimentConfig, to_dict
 from ..data import ClassDefinition, LabelSchema
+from .precision import PrecisionController
 
 CHECKPOINT_SCHEMA_VERSION = 1
 CLASS_NAMES = ("background", "pet")
@@ -64,6 +65,7 @@ def save_checkpoint(
     cfg: ExperimentConfig,
     manifest_checksums: dict[str, str],
     label_schema: LabelSchema | None = None,
+    precision_state: dict[str, Any] | None = None,
 ) -> Path:
     """Atomically save all state required for exact training resume."""
     output = Path(path)
@@ -98,6 +100,8 @@ def save_checkpoint(
         "class_names": [item.name for item in schema.classes],
         "label_schema": schema.to_dict(),
         "label_schema_sha256": schema_hash,
+        "precision_state": precision_state
+        or {"requested": False, "effective": False, "scaler": None},
         "label_map": dict(cfg.data.label_map),
         "ignore_index": schema.ignore_index,
         "manifest_checksums": dict(manifest_checksums),
@@ -126,6 +130,13 @@ def load_checkpoint(path: str | Path) -> dict[str, Any]:
     missing = sorted(REQUIRED_KEYS - set(loaded))
     if missing:
         raise ValueError(f"checkpoint is missing required keys: {missing}")
+    precision_state = loaded.get("precision_state")
+    if (
+        isinstance(precision_state, dict)
+        and precision_state.get("effective") is True
+        and not isinstance(precision_state.get("scaler"), dict)
+    ):
+        raise ValueError("effective CUDA AMP checkpoint is missing scaler state")
     return loaded
 
 
@@ -152,6 +163,7 @@ def restore_training_state(
     model: nn.Module,
     optimizer: Optimizer,
     scheduler: LRScheduler | None,
+    precision: PrecisionController | None = None,
 ) -> tuple[int, float]:
     """Restore model, optimizer, scheduler, and random number generators."""
     model.load_state_dict(checkpoint["model_state"])
@@ -161,6 +173,8 @@ def restore_training_state(
         if scheduler is None:
             raise ValueError("checkpoint contains scheduler state but the current run has no scheduler")
         scheduler.load_state_dict(scheduler_state)
+    if precision is not None:
+        precision.load_state_dict(checkpoint.get("precision_state"))
     rng_state = checkpoint["rng_state"]
     random.setstate(rng_state["python"])
     np.random.set_state(rng_state["numpy"])

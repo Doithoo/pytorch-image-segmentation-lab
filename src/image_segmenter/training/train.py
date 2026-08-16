@@ -22,6 +22,7 @@ from ..models import create_model
 from ..preflight import validate_batch_contract
 from .checkpoint import git_revision, load_checkpoint, restore_training_state
 from .losses import SegmentationLoss
+from .precision import PrecisionController
 from .trainer import Trainer
 
 
@@ -244,6 +245,7 @@ def train_from_config(
     if config.train.optimizer != "adamw":
         raise ValueError(f"unsupported optimizer: {config.train.optimizer}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.lr, weight_decay=config.train.weight_decay)
+    precision = PrecisionController(device, requested=config.train.amp)
     scheduler: LRScheduler | None
     if config.train.scheduler == "cosine":
         scheduler = CosineAnnealingLR(optimizer, T_max=config.train.epochs)
@@ -267,6 +269,7 @@ def train_from_config(
         run_dir,
         manifest_checksums,
         label_schema,
+        precision,
     )
     if dry_run:
         trainer.dry_run(train_loader)
@@ -283,7 +286,9 @@ def train_from_config(
             raise ValueError("resume checkpoint does not belong to the configured run directory")
         checkpoint = load_checkpoint(checkpoint_path)
         _validate_resume(checkpoint, config, manifest_checksums, label_schema.to_dict())
-        completed_epoch, best_metric = restore_training_state(checkpoint, model, optimizer, scheduler)
+        completed_epoch, best_metric = restore_training_state(
+            checkpoint, model, optimizer, scheduler, precision
+        )
         start_epoch = completed_epoch + 1
         if start_epoch > config.train.epochs:
             raise ValueError(

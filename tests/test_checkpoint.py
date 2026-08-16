@@ -36,6 +36,7 @@ def test_checkpoint_restores_model_optimizer_and_metadata(tmp_path: Path) -> Non
         "parameters": {"base_channels": 4},
     }
     assert loaded["label_schema"]["classes"][1]["name"] == "pet"
+    assert loaded["precision_state"] == {"requested": False, "effective": False, "scaler": None}
     with torch.no_grad():
         next(model.parameters()).add_(1.0)
     assert restore_training_state(loaded, model, optimizer, None) == (3, 0.6)
@@ -82,4 +83,24 @@ def test_incomplete_checkpoint_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "incomplete.pt"
     torch.save({"schema_version": 1}, path)
     with pytest.raises(ValueError, match="missing required keys"):
+        load_checkpoint(path)
+
+
+def test_effective_amp_checkpoint_requires_scaler_state(tmp_path: Path) -> None:
+    cfg = load_config(overrides={"model.base_channels": 4, "data.image_size": 32})
+    model = create_model("unet_small", in_channels=3, num_classes=2, base_channels=4, pretrained=False)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr)
+    path = save_checkpoint(
+        tmp_path / "amp.pt",
+        model,
+        optimizer,
+        None,
+        epoch=1,
+        best_metric=0.0,
+        cfg=cfg,
+        manifest_checksums={"train": "abc"},
+        precision_state={"requested": True, "effective": True, "scaler": None},
+    )
+
+    with pytest.raises(ValueError, match="missing scaler state"):
         load_checkpoint(path)
