@@ -19,6 +19,7 @@ from .. import __version__
 from ..config import ExperimentConfig, config_from_dict, dump_config, to_dict
 from ..data import SegmentationDataset, build_transform, load_external_datasets, read_dataset_metadata
 from ..models import create_model
+from ..preflight import validate_batch_contract
 from .checkpoint import git_revision, load_checkpoint, restore_training_state
 from .losses import SegmentationLoss
 from .trainer import Trainer
@@ -224,6 +225,17 @@ def train_from_config(
         pretrained=config.model.pretrained,
         params=config.model.params,
     ).to(device)
+    try:
+        preflight_batch = next(iter(train_loader))
+    except StopIteration as exc:
+        raise ValueError("training loader contains no batches") from exc
+    validate_batch_contract(
+        model,
+        preflight_batch,
+        label_schema,
+        expected_in_channels=config.model.in_channels,
+        device=device,
+    )
     criterion = SegmentationLoss(
         config.loss.cross_entropy_weight,
         config.loss.dice_weight,
