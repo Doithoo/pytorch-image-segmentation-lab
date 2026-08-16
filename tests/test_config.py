@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from image_segmenter.config import dump_config, load_config
+from image_segmenter.config import config_from_dict, dump_config, load_config, to_dict
 
 
 def test_defaults_match_binary_segmentation_contract() -> None:
@@ -48,3 +48,15 @@ def test_dumped_config_round_trips(tmp_path: Path) -> None:
     dump_config(original, path)
     restored = load_config(path)
     assert restored == original
+
+
+def test_config_dictionary_round_trips() -> None:
+    original = load_config(overrides={"data.image_size": 32, "model.base_channels": 8})
+    assert config_from_dict(to_dict(original)) == original
+
+
+def test_config_from_dict_rejects_unknown_nested_key() -> None:
+    raw = to_dict(load_config())
+    raw["model"]["mystery"] = True
+    with pytest.raises(ValueError, match="unknown config key: model.mystery"):
+        config_from_dict(raw)

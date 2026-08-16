@@ -118,6 +118,16 @@ def load_config(
         if not isinstance(raw, dict):
             raise ValueError("config root must be a mapping")
 
+    return config_from_dict(raw, overrides=overrides)
+
+
+def config_from_dict(
+    raw: dict[str, Any],
+    overrides: dict[str, Any] | None = None,
+) -> ExperimentConfig:
+    """Restore and validate a configuration from built-in containers."""
+    if not isinstance(raw, dict):
+        raise ValueError("config root must be a mapping")
     cfg = ExperimentConfig()
     for key, value in raw.items():
         if key in SECTION_TYPES:
