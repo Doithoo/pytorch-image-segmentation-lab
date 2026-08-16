@@ -1,0 +1,37 @@
+data:
+  data_dir: data/raw
+  manifest_dir: data/manifests
+  image_size: 256
+  label_map: {1: 1, 2: 0}
+  ignore_values: [3]
+  split_ratios: [0.8, 0.1, 0.1]
+  num_workers: 4
+  pin_memory: true
+  horizontal_flip: 0.5
+  max_train_samples: null
+  max_valid_samples: null
+  max_test_samples: null
+model:
+  name: unet_small
+  in_channels: 3
+  num_classes: 2
+  base_channels: 32
+  pretrained: false
+loss:
+  name: cross_entropy_dice
+  cross_entropy_weight: 0.5
+  dice_weight: 0.5
+  ignore_index: 255
+train:
+  epochs: 25
+  batch_size: 8
+  lr: 0.0003
+  weight_decay: 0.0001
+  optimizer: adamw
+  scheduler: cosine
+  grad_clip: 0.0
+  seed: 42
+device: auto
+output_dir: artifacts
+run_name: reference-unet
+log_level: info

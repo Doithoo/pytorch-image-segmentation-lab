@@ -29,6 +29,7 @@ def test_checkpoint_restores_model_optimizer_and_metadata(tmp_path: Path) -> Non
     assert loaded["epoch"] == 3
     assert loaded["best_metric"] == 0.6
     assert loaded["config"]["data"]["label_map"] == {1: 1, 2: 0}
+    assert loaded["model_metadata"] == {"architecture": "unet_small", "pretrained_weights": None}
     with torch.no_grad():
         next(model.parameters()).add_(1.0)
     assert restore_training_state(loaded, model, optimizer, None) == (3, 0.6)

@@ -30,6 +30,7 @@ REQUIRED_KEYS = {
     "label_map",
     "ignore_index",
     "manifest_checksums",
+    "model_metadata",
     "rng_state",
     "package_version",
 }
@@ -82,6 +83,7 @@ def save_checkpoint(
         "label_map": dict(cfg.data.label_map),
         "ignore_index": cfg.loss.ignore_index,
         "manifest_checksums": dict(manifest_checksums),
+        "model_metadata": dict(getattr(model, "checkpoint_metadata", {})),
         "rng_state": rng_state,
         "package_version": __version__,
         "git_revision": _git_revision(),
