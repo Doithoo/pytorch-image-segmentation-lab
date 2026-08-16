@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -12,6 +13,8 @@ import yaml
 from . import __version__
 from .config import ExperimentConfig, load_config, to_dict
 from .data import ManifestError, prepare_paired_manifests
+from .evaluation.evaluate import evaluate_checkpoint
+from .inference import Predictor
 from .training import train_from_config
 
 
@@ -81,6 +84,40 @@ def _train(args: argparse.Namespace) -> int:
     return 0
 
 
+def _evaluate(args: argparse.Namespace) -> int:
+    output = evaluate_checkpoint(
+        args.checkpoint,
+        split=args.split,
+        device=args.device,
+        output_dir=args.output_dir,
+        sample_limit=args.sample_limit,
+        error_limit=args.error_limit,
+        plot=args.plot,
+    )
+    print(f"evaluation artifacts: {output}")
+    return 0
+
+
+def _predict(args: argparse.Namespace) -> int:
+    predictor = Predictor(args.checkpoint, device=args.device)
+    source = Path(args.image)
+    if source.is_dir():
+        results = predictor.predict_directory(source, args.output)
+        print(f"predicted {len(results)} images into {Path(args.output)}")
+    else:
+        paths = predictor.predict_path(source, args.output)
+        print(f"raw mask: {paths['raw']}")
+        print(f"overlay: {paths['overlay']}")
+    return 0
+
+
+def _nonnegative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be zero or greater")
+    return parsed
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI and translate expected domain errors into exit code 2."""
     parser = argparse.ArgumentParser(prog="segment")
@@ -105,10 +142,27 @@ def main(argv: list[str] | None = None) -> int:
     train.add_argument("--resume", type=str, default=None, help="last checkpoint to resume")
     train.set_defaults(func=_train)
 
+    evaluate = subparsers.add_parser("evaluate", help="evaluate a checkpoint on a manifest split")
+    evaluate.add_argument("--checkpoint", required=True)
+    evaluate.add_argument("--split", choices=("train", "valid", "test"), default="test")
+    evaluate.add_argument("--output-dir", default=None)
+    evaluate.add_argument("--sample-limit", type=_nonnegative_int, default=8)
+    evaluate.add_argument("--error-limit", type=_nonnegative_int, default=12)
+    evaluate.add_argument("--plot", action="store_true")
+    evaluate.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto")
+    evaluate.set_defaults(func=_evaluate)
+
+    predict = subparsers.add_parser("predict", help="predict masks for an image or directory")
+    predict.add_argument("--checkpoint", required=True)
+    predict.add_argument("--image", required=True)
+    predict.add_argument("--output", required=True)
+    predict.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto")
+    predict.set_defaults(func=_predict)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (FileNotFoundError, ManifestError, ValueError, KeyError) as exc:
+    except (FileNotFoundError, ManifestError, RuntimeError, ValueError, KeyError) as exc:
         if args.debug:
             raise
         print(f"error: {exc}", file=sys.stderr)
