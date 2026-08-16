@@ -71,6 +71,8 @@ def save_checkpoint(
     }
     if torch.cuda.is_available():
         rng_state["cuda"] = torch.cuda.get_rng_state_all()
+    if torch.backends.mps.is_available():
+        rng_state["mps"] = torch.mps.get_rng_state()
     payload = {
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "epoch": epoch,
@@ -131,4 +133,6 @@ def restore_training_state(
     torch.set_rng_state(rng_state["torch"])
     if "cuda" in rng_state and torch.cuda.is_available():
         torch.cuda.set_rng_state_all(rng_state["cuda"])
+    if "mps" in rng_state and torch.backends.mps.is_available():
+        torch.mps.set_rng_state(rng_state["mps"])
     return int(checkpoint["epoch"]), float(checkpoint["best_metric"])

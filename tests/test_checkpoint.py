@@ -36,6 +36,35 @@ def test_checkpoint_restores_model_optimizer_and_metadata(tmp_path: Path) -> Non
     assert all(torch.equal(model.state_dict()[name], value) for name, value in expected.items())
 
 
+def test_checkpoint_restores_mps_rng_when_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = load_config(overrides={"model.base_channels": 4, "data.image_size": 32})
+    model = create_model("unet_small", in_channels=3, num_classes=2, base_channels=4, pretrained=False)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr)
+    expected_rng = torch.tensor([1, 2, 3], dtype=torch.uint8)
+    restored_rng: list[torch.Tensor] = []
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+    monkeypatch.setattr(torch.mps, "get_rng_state", lambda: expected_rng)
+    monkeypatch.setattr(torch.mps, "set_rng_state", restored_rng.append)
+
+    path = tmp_path / "last.pt"
+    save_checkpoint(
+        path,
+        model,
+        optimizer,
+        None,
+        epoch=1,
+        best_metric=0.5,
+        cfg=cfg,
+        manifest_checksums={"train": "abc"},
+    )
+    loaded = load_checkpoint(path)
+    restore_training_state(loaded, model, optimizer, None)
+
+    assert torch.equal(loaded["rng_state"]["mps"], expected_rng)
+    assert len(restored_rng) == 1
+    assert torch.equal(restored_rng[0], expected_rng)
+
+
 def test_unknown_checkpoint_schema_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "future.pt"
     torch.save({"schema_version": 99}, path)
