@@ -2,9 +2,12 @@
 
 from .dataset import SegmentationDataset, map_mask
 from .manifest import ManifestError, ManifestRow, prepare_oxford_manifests, prepare_paired_manifests
+from .schema import ClassDefinition, LabelSchema
 from .transforms import ImageTransform, PairedTransform, build_transform
 
 __all__ = [
+    "ClassDefinition",
+    "LabelSchema",
     "ManifestError",
     "ManifestRow",
     "ImageTransform",
