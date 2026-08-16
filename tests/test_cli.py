@@ -81,3 +81,15 @@ def test_model_info_reports_missing_optional_dependency(
 def test_model_info_unknown_name_uses_registry_suggestion(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["model-info", "unet_smal"]) == 2
     assert "did you mean 'unet_small'" in capsys.readouterr().err
+
+
+def test_dataset_discovery_commands(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["list-datasets"]) == 0
+    output = capsys.readouterr().out
+    assert "oxford_pet" in output
+    assert "split_folders" in output
+
+    assert main(["dataset-info", "manifest"]) == 0
+    details = capsys.readouterr().out
+    assert "provider: image-segmenter" in details
+    assert "manifests:" in details

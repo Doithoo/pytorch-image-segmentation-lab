@@ -12,7 +12,13 @@ import yaml
 
 from . import __version__
 from .config import ExperimentConfig, load_config, to_dict
-from .data import ManifestError, prepare_oxford_manifests, prepare_paired_manifests
+from .data import (
+    ManifestError,
+    available_datasets,
+    dataset_status,
+    get_dataset_spec,
+    prepare_dataset,
+)
 from .evaluation.evaluate import evaluate_checkpoint
 from .inference import Predictor
 from .models import available_models, create_model, get_model_spec, model_status
@@ -65,30 +71,26 @@ def _prepare_data(args: argparse.Namespace) -> int:
     data_dir = args.data_dir or config.data.data_dir
     manifest_dir = args.manifest_dir or config.data.manifest_dir
     source_format = args.source_format
-    if source_format == "auto":
+    provider = config.data.name
+    if source_format == "auto" and provider in {"oxford_pet", "paired_masks"}:
         annotations = Path(data_dir) / "annotations"
-        source_format = (
-            "oxford-pet"
+        provider = (
+            "oxford_pet"
             if (annotations / "trainval.txt").is_file() and (annotations / "test.txt").is_file()
-            else "paired"
+            else "paired_masks"
         )
-    if source_format == "oxford-pet":
-        paths = prepare_oxford_manifests(
-            data_dir,
-            manifest_dir,
-            config.data.seed,
-            config.data.label_map,
-            set(config.data.ignore_values),
-        )
-    else:
-        paths = prepare_paired_manifests(
-            data_dir,
-            manifest_dir,
-            config.data.split_ratios,
-            config.data.seed,
-            config.data.label_map,
-            set(config.data.ignore_values),
-        )
+    elif source_format != "auto":
+        provider = {"oxford-pet": "oxford_pet", "paired": "paired_masks"}[source_format]
+    paths = prepare_dataset(
+        provider,
+        data_dir=data_dir,
+        manifest_dir=manifest_dir,
+        split_ratios=config.data.split_ratios,
+        seed=config.data.seed,
+        label_map=config.data.label_map,
+        ignore_values=set(config.data.ignore_values),
+        params=config.data.params,
+    )
     for split in ("train", "valid", "test"):
         print(f"{split}: {paths[split]}")
     return 0
@@ -178,6 +180,32 @@ def _model_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _list_datasets(_args: argparse.Namespace) -> int:
+    print("name\tprovider\tavailable")
+    for name in available_datasets():
+        spec = get_dataset_spec(name)
+        status = dataset_status(name)
+        print(f"{name}\t{spec.provider}\t{'yes' if status.available else 'no'}")
+    return 0
+
+
+def _dataset_info(args: argparse.Namespace) -> int:
+    spec = get_dataset_spec(args.name)
+    status = dataset_status(args.name)
+    print(f"name: {spec.name}")
+    print(f"provider: {spec.provider}")
+    print(f"available: {'yes' if status.available else 'no'}")
+    if status.reason is not None:
+        print(f"reason: {status.reason}")
+    if status.install_hint is not None:
+        print(f"install: {status.install_hint}")
+    if spec.parameters:
+        print("parameters:")
+        for name, description in sorted(spec.parameters.items()):
+            print(f"  {name}: {description}")
+    return 0
+
+
 def _nonnegative_int(value: str) -> int:
     parsed = int(value)
     if parsed < 0:
@@ -203,6 +231,13 @@ def main(argv: list[str] | None = None) -> int:
     model_info = subparsers.add_parser("model-info", help="inspect one registered model")
     model_info.add_argument("name", help="registered model name")
     model_info.set_defaults(func=_model_info)
+
+    list_datasets = subparsers.add_parser("list-datasets", help="list registered dataset providers")
+    list_datasets.set_defaults(func=_list_datasets)
+
+    dataset_info = subparsers.add_parser("dataset-info", help="inspect one dataset provider")
+    dataset_info.add_argument("name", help="registered dataset provider name")
+    dataset_info.set_defaults(func=_dataset_info)
 
     prepare = subparsers.add_parser("prepare-data", help="validate paired data and create manifests")
     _add_config_args(prepare)

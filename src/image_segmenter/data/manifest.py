@@ -30,6 +30,7 @@ MANIFEST_FIELDS = (
     "height",
     "breed",
     "source_split",
+    "group_id",
 )
 INVALID_FIELDS = ("sample_id", "path", "reason")
 
@@ -46,6 +47,7 @@ class ManifestRow:
     height: int
     breed: str = ""
     source_split: str = ""
+    group_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -172,12 +174,15 @@ def _write_metadata(
     output: Path,
     source: Path,
     dataset_type: str,
-    seed: int,
+    seed: int | None,
     label_map: dict[int, int],
     ignore_values: set[int],
     paths: dict[str, Path],
     counts: dict[str, int],
     audit: dict[str, object] | None = None,
+    *,
+    provider_name: str | None = None,
+    split_method_name: str | None = None,
 ) -> None:
     checksums = {split: _sha256(path) for split, path in paths.items()}
     metadata: dict[str, Any] = {
@@ -206,8 +211,10 @@ def _write_metadata(
         *(f"{key}: {value}" for key, value in (audit or {}).items()),
     ]
     (output / "summary.txt").write_text("\n".join(summary) + "\n")
-    provider = "oxford_pet" if dataset_type == "oxford-iiit-pet" else "paired_masks"
-    split_method = "official_test_stratified_train_valid" if provider == "oxford_pet" else "random"
+    provider = provider_name or ("oxford_pet" if dataset_type == "oxford-iiit-pet" else "paired_masks")
+    split_method = split_method_name or (
+        "official_test_stratified_train_valid" if provider == "oxford_pet" else "random"
+    )
     label_schema = LabelSchema(
         classes=(
             ClassDefinition(0, "background", (32, 32, 32)),
