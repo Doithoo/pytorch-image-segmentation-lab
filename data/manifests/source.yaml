@@ -1,0 +1,31 @@
+dataset: oxford-iiit-pet
+data_dir: ../raw
+seed: 666
+label_map:
+  1: 1
+  2: 0
+ignore_values:
+- 3
+split_counts:
+  train: 2941
+  valid: 739
+  test: 3669
+manifest_sha256:
+  train: f7e7af12141c01b6297c6bbc935a536a90023f80f1c57297e5477e4b7cd67371
+  valid: 872ed4b206b576a1c0582c7ec8add1b782e2cff68624ebd8901c6b64a1a5897d
+  test: 619642b927ecd138e3bc068340b5c30231ea705e48d27420cc9d2e20034b757c
+exact_duplicate_audit: passed
+source_url: https://www.robots.ox.ac.uk/~vgg/data/pets/
+license: Creative Commons Attribution-ShareAlike 4.0 International
+unlisted_pair_count: 41
+unlisted_pair_examples:
+- Abyssinian_34
+- Abyssinian_82
+- Bombay_11
+- Bombay_189
+- Bombay_190
+- Bombay_192
+- Bombay_203
+- Bombay_206
+- Bombay_209
+- Bombay_210

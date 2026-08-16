@@ -84,7 +84,7 @@ def _write_dict_rows(path: Path, fieldnames: tuple[str, ...], rows: list[dict[st
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     temporary.replace(path)
@@ -171,6 +171,7 @@ def _write_metadata(
     ignore_values: set[int],
     paths: dict[str, Path],
     counts: dict[str, int],
+    audit: dict[str, object] | None = None,
 ) -> None:
     checksums = {split: _sha256(path) for split, path in paths.items()}
     metadata: dict[str, Any] = {
@@ -186,6 +187,7 @@ def _write_metadata(
     if dataset_type == "oxford-iiit-pet":
         metadata["source_url"] = "https://www.robots.ox.ac.uk/~vgg/data/pets/"
         metadata["license"] = "Creative Commons Attribution-ShareAlike 4.0 International"
+    metadata.update(audit or {})
     (output / "source.yaml").write_text(yaml.safe_dump(metadata, sort_keys=False))
     summary = [
         f"dataset: {dataset_type}",
@@ -195,6 +197,7 @@ def _write_metadata(
         f"ignore_values: {sorted(ignore_values)}",
         *(f"{split}_sha256: {checksums[split]}" for split in ("train", "valid", "test")),
         "exact_duplicate_audit: passed",
+        *(f"{key}: {value}" for key, value in (audit or {}).items()),
     ]
     (output / "summary.txt").write_text("\n".join(summary) + "\n")
 
@@ -207,6 +210,7 @@ def _write_manifests(
     seed: int,
     label_map: dict[int, int],
     ignore_values: set[int],
+    audit: dict[str, object] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     for split in ("train", "valid", "test"):
@@ -229,7 +233,7 @@ def _write_manifests(
         _write_dict_rows(path, MANIFEST_FIELDS, rows)
         paths[split] = path
     counts = {split: len(items) for split, items in split_items.items()}
-    _write_metadata(output, source, dataset_type, seed, label_map, ignore_values, paths, counts)
+    _write_metadata(output, source, dataset_type, seed, label_map, ignore_values, paths, counts, audit)
     return paths
 
 
@@ -305,10 +309,10 @@ def prepare_oxford_manifests(
     if set(trainval_ids) & set(test_ids):
         raise ManifestError("Oxford trainval and test splits overlap")
     listed = set(trainval_ids) | set(test_ids)
-    if listed != set(by_id):
-        missing = sorted(set(by_id) - listed)
-        unknown = sorted(listed - set(by_id))
-        raise ManifestError(f"Oxford split membership mismatch; unlisted={missing[:5]}, missing_files={unknown[:5]}")
+    missing_files = sorted(listed - set(by_id))
+    if missing_files:
+        raise ManifestError(f"Oxford split membership mismatch; missing_files={missing_files[:5]}")
+    unlisted = sorted(set(by_id) - listed)
 
     groups: dict[str, list[str]] = {}
     for sample_id in trainval_ids:
@@ -331,4 +335,17 @@ def prepare_oxford_manifests(
         "valid": sorted(valid_items, key=lambda item: item[0].sample_id),
         "test": test_items,
     }
-    return _write_manifests(output, source, split_items, "oxford-iiit-pet", seed, label_map, ignore_values)
+    audit: dict[str, object] = {
+        "unlisted_pair_count": len(unlisted),
+        "unlisted_pair_examples": unlisted[:10],
+    }
+    return _write_manifests(
+        output,
+        source,
+        split_items,
+        "oxford-iiit-pet",
+        seed,
+        label_map,
+        ignore_values,
+        audit,
+    )

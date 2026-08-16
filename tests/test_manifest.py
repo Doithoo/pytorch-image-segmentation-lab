@@ -25,6 +25,7 @@ def test_prepare_pairs_and_splits_deterministically(paired_data: Path, tmp_path:
     assert [row["sample_id"] for row in _rows(first / "train.csv")] == [
         row["sample_id"] for row in _rows(second / "train.csv")
     ]
+    assert b"\r\n" not in (first / "train.csv").read_bytes()
 
 
 def test_missing_mask_is_reported_with_invalid_csv(paired_data: Path, tmp_path: Path) -> None:
@@ -76,3 +77,18 @@ def test_oxford_split_is_stratified_and_official_test_is_untouched(oxford_data: 
     assert {row["source_split"] for row in test_rows} == {"test"}
     assert (output / "source.yaml").is_file()
     assert "train: 6" in (output / "summary.txt").read_text()
+
+
+def test_oxford_unlisted_archive_pairs_are_audited_and_excluded(oxford_data: Path, tmp_path: Path) -> None:
+    Image.new("RGB", (24, 24), color=(20, 40, 60)).save(oxford_data / "images" / "extra_breed_99.jpg")
+    Image.new("L", (24, 24), color=1).save(oxford_data / "masks" / "extra_breed_99.png")
+    output = tmp_path / "manifests"
+
+    paths = prepare_oxford_manifests(
+        oxford_data, output, seed=11, label_map={1: 1, 2: 0}, ignore_values={3}
+    )
+
+    listed = {row["sample_id"] for path in paths.values() for row in _rows(path)}
+    assert "extra_breed_99" not in listed
+    assert "unlisted_pair_count: 1" in (output / "source.yaml").read_text()
+    assert "unlisted_pair_count: 1" in (output / "summary.txt").read_text()
