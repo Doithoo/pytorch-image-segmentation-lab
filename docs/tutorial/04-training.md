@@ -1,56 +1,65 @@
-# Tutorial 04: Training
+# Tutorial 04: From One Batch to a Resumable Run
 
-[简体中文](04-training.zh-CN.md) | [Tutorial index](../learning-path.md)
+[简体中文](04-training.zh-CN.md) | [Tutorial index](README.md)
 
-Training repeats a small sequence while preserving enough state to explain and
-resume it.
+The causal core is small:
 
-## One Batch
-
-```text
-load -> forward -> loss -> zero gradients -> backward -> optional clip -> step
+```python
+optimizer.zero_grad(set_to_none=True)
+logits = model(images)
+loss, components = criterion(logits, targets)
+loss.backward()
+optimizer.step()
 ```
 
-Cross-entropy uses valid background and pet pixels. Foreground soft Dice uses
-pet probability and filters ignored pixels. If a batch has no valid foreground,
-the Dice term is inactive rather than rewarding an empty mask.
+Backward computes gradients; optimizer step changes parameters. The full
+Trainer adds validation, records, and checkpoints around this sequence.
 
-## Dry Run First
+## Loss and dry run
+
+Cross-entropy classifies valid pixels. Soft Dice emphasizes foreground overlap.
+Both must filter index 255 consistently. The minimal config uses CE alone; the
+reference config uses equal CE and Dice weights.
 
 ```bash
 uv run segment train --config configs/learning_minimal.yaml --dry-run
 ```
 
-The dry run executes a real optimizer update and reports tensor shapes, mapped
-mask values, valid-pixel ratio, loss components, and device. It does not create
-a normal run. Fix any problem here before committing hours to epochs.
+Dry run loads one production batch and performs a real update. It prints device,
+shapes, values, valid-pixel ratio, and loss, then `dry-run OK`. It does not create
+a normal run or measure generalization.
 
-## Epochs And Validation
+## Read the run
 
 ```bash
-uv run segment train --config configs/learning_minimal.yaml
+uv run segment train --config configs/learning_minimal.yaml \
+  --set run_name first-unet
+uv run python scripts/plot_metrics.py artifacts/first-unet/metrics.csv \
+  --output artifacts/first-unet/loss_curve.png
 ```
 
-Training batches update weights; validation batches use evaluation mode and no
-gradients. After each epoch, metrics append to `metrics.csv`, `last.pt` updates,
-and `best.pt` updates only when validation pet IoU improves.
+Training enables gradients and updates. Validation uses eval mode and no-grad.
+`metrics.csv` records train/valid loss, pet IoU, and LR. Falling train loss with
+rising validation loss suggests overfitting; falling loss with zero pet IoU can
+indicate a background-only solution.
 
-Training loss can fall while validation IoU stalls or declines. This is why the
-most recent checkpoint is not automatically the best generalizing checkpoint.
+`last.pt` is the newest resumable state. `best.pt` is the highest validation pet
+IoU state for evaluation. Checkpoints include model, optimizer, scheduler,
+configuration, labels, manifest hashes, RNG state, version, and revision. Load
+only trusted PyTorch checkpoints.
 
-## Resume Exactly
+## Resume semantics
 
-Resume restores model, optimizer, scheduler, epoch, best score, and random
-states, including the shuffle sequence. It rejects mismatched model settings,
-preprocessing, loss and training semantics, labels, ignore index, or manifest
-hashes. Data paths may move and total `train.epochs` may increase; do not point
-resume at an unrelated run.
+```bash
+uv run segment train --config configs/reference_unet.yaml \
+  --resume artifacts/reference-unet/last.pt
+```
 
-## Read The Artifacts
+Resume rejects changes to model, preprocessing, loss, batch semantics, labels,
+or manifests. With no scheduler, total epochs may be increased. A cosine
+checkpoint must keep its planned total because saved `T_max` already defines the
+schedule; start a new run for an extended cosine plan.
 
-`config.yaml` is the final configuration. `run.yaml` records environment and
-source facts. `metrics.csv` is append-only epoch evidence. A checkpoint is a
-trusted project artifact and uses Python serialization; do not load unknown
-files from untrusted sources.
-
-Next: [Tutorial 05](05-evaluation-and-inference.md).
+Seeds improve same-environment repeatability but do not erase device and library
+differences or replace multi-seed evidence. Continue to
+[evaluation and inference](05-evaluation-and-inference.md).

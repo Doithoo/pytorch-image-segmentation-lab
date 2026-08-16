@@ -29,10 +29,7 @@ def _verify_file(path: Path, expected_sha256: str) -> None:
         raise FileNotFoundError(f"archive not found: {path}")
     actual_sha256 = _sha256(path)
     if actual_sha256 != expected_sha256.lower():
-        raise ValueError(
-            f"checksum mismatch for {path}: "
-            f"expected {expected_sha256.lower()}, got {actual_sha256}"
-        )
+        raise ValueError(f"checksum mismatch for {path}: expected {expected_sha256.lower()}, got {actual_sha256}")
 
 
 def download_file(
@@ -55,10 +52,7 @@ def download_file(
             shutil.copyfileobj(response, output, length=COPY_BUFFER_SIZE)
         actual_sha256 = _sha256(partial)
         if actual_sha256 != expected_sha256:
-            raise ValueError(
-                f"checksum mismatch for {url}: "
-                f"expected {expected_sha256}, got {actual_sha256}"
-            )
+            raise ValueError(f"checksum mismatch for {url}: expected {expected_sha256}, got {actual_sha256}")
         partial.replace(destination)
     except BaseException:
         partial.unlink(missing_ok=True)
@@ -73,12 +67,7 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
     with tarfile.open(archive, "r:*") as handle:
         for member in handle.getmembers():
             member_path = (root / member.name).resolve()
-            if (
-                member_path != root
-                and root not in member_path.parents
-                or member.issym()
-                or member.islnk()
-            ):
+            if member_path != root and root not in member_path.parents or member.issym() or member.islnk():
                 raise ValueError(f"unsafe archive member: {member.name}")
         handle.extractall(destination, filter="data")
 
@@ -130,9 +119,7 @@ def install_oxford_archives(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Download, verify, and install the Oxford-IIIT Pet dataset."
-    )
+    parser = argparse.ArgumentParser(description="Download, verify, and install the Oxford-IIIT Pet dataset.")
     parser.add_argument(
         "--data-dir",
         type=Path,

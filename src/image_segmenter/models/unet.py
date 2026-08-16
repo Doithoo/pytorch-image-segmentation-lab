@@ -62,6 +62,7 @@ class SmallUNet(nn.Module):
             ]
         )
         self.head = nn.Conv2d(widths[0], num_classes, 1)
+        self.checkpoint_metadata = {"architecture": "unet_small", "pretrained_weights": None}
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         if image.ndim != 4:

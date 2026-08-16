@@ -2,64 +2,26 @@
 
 [简体中文](config-reference.zh-CN.md) | [Back to README](../README.md)
 
-All YAML keys map to typed dataclasses in `config.py`. This page explains intent;
-use `show-config` for exact current defaults.
+Run an existing config first. Use `segment show-config` and `config.py` for exact
+defaults; this page explains decisions.
 
-## Top-Level Fields
+`data` controls paths, square input size (positive multiple of 16), RGB
+normalization, raw-value mapping, ignored values, generic split ratios, seed,
+workers, flip probability, and optional sample limits. Actual generic splits
+must all be non-empty. Images use bilinear resize; masks use nearest-neighbor.
 
-- `device`: `auto`, `cpu`, `cuda`, or `mps`. Auto prefers CUDA, then MPS, then
-  CPU. An unavailable explicit device is an error.
-- `output_dir`: root for run artifacts.
-- `run_name`: stable subdirectory name; generated when omitted.
-- `log_level`: standard Python logging level.
+`model` selects `unet_small` or `deeplabv3_resnet50`. The binary pipeline fixes
+RGB input and two output classes. U-Net width uses `base_channels`; pretrained
+weights apply only to DeepLab and may require network access.
 
-## Data Fields
+`loss` combines non-negative CE and foreground Dice weights, with at least one
+positive. `ignore_index` must differ from classes 0/1 and match mapped targets.
 
-- `data.data_dir`: local root containing images, masks, and optional Oxford
-  annotations.
-- `data.manifest_dir`: directory containing `train.csv`, `valid.csv`, and
-  `test.csv`.
-- `data.image_size`: square network size, positive and divisible by 16.
-- `data.label_map`: raw integer to class index mapping. Oxford uses `{1: 1,
-  2: 0}`.
-- `data.ignore_values`: raw values mapped to the loss ignore index; Oxford uses
-  `[3]`.
-- `data.split_ratios`: generic paired-data train/valid/test ratios that sum to
-  1; Oxford uses its official split policy instead.
-- `data.normalize_mean/std`: three image-channel values.
-- `data.horizontal_flip`: training-only probability from 0 to 1.
-- `data.num_workers`, `data.pin_memory`: DataLoader controls.
-- `data.max_*_samples`: optional bounded subsets for learning runs.
-- `data.seed`: manifest split seed from 0 through 4,294,967,295.
+`train` contains epochs, batch, AdamW LR/weight decay, `none` or `cosine`
+scheduler, optional gradient clipping, and seed. A cosine checkpoint cannot be
+resumed with a changed planned epoch total.
 
-## Model And Loss Fields
-
-- `model.name`: `unet_small` or `deeplabv3_resnet50`.
-- `model.in_channels`: 3 for RGB.
-- `model.num_classes`: 2 for background/pet.
-- `model.base_channels`: first U-Net width; larger values use more memory.
-- `model.pretrained`: advanced DeepLab weight switch; may download weights.
-- `loss.name`: `cross_entropy` or `cross_entropy_dice`.
-- `loss.cross_entropy_weight`, `loss.dice_weight`: non-negative weights with a
-  positive sum.
-- `loss.ignore_index`: mapped target value 255.
-
-## Training Fields
-
-- `train.batch_size`, `train.epochs`: positive integer optimization controls.
-- `train.lr`, `train.weight_decay`: learning rate and regularization controls.
-- `train.optimizer`: currently `adamw`.
-- `train.scheduler`: `none` or `cosine`.
-- `train.seed`: integer from 0 through 4,294,967,295 that seeds Python, NumPy,
-  PyTorch, workers, and sampling.
-- `train.grad_clip`: optional maximum gradient norm; 0 disables clipping.
-
-## Validate A File
-
-```bash
-uv run segment show-config --config configs/reference_unet.yaml
-```
-
-See the annotated files in [configs](../configs/README.md). Changes to image
-size, normalization, labels, or model construction affect checkpoint
-compatibility and should define a new run.
+Top-level `device` selects the runtime, while `output_dir` and `run_name` control
+artifact paths. Give every experiment a distinct run name. `log_level` is
+parsed and validated for configuration compatibility, but the current CLI does
+not yet use it to change output verbosity.

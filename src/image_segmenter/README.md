@@ -1,39 +1,23 @@
-# Package Guide
+# How to Read the Package
 
 [简体中文](README.zh-CN.md) | [Code tour](../../docs/code-tour.md)
 
-`image_segmenter` is the installed production package. Dependencies point
-inward from CLI orchestration to focused data, model, training, evaluation, and
-inference modules.
-
-## Start Here
-
-Read `config.py`, then `data/dataset.py`, `models/unet.py`, and
-`training/losses.py`. These define the contracts passed through the rest of the
-system. Run the dry-run while tracing calls.
-
-```bash
-uv run segment train --config configs/learning_minimal.yaml --dry-run
+```text
+segment train -> CLI -> resolved config -> train_from_config
+              -> Trainer.fit -> save best.pt / last.pt
 ```
 
-## Module Ownership
+| Module | Input | Output | Read when |
+| --- | --- | --- | --- |
+| `config.py` | defaults/YAML/overrides | resolved config | settings surprise you |
+| `data/` | manifests and pairs | tensor batches | learning data flow |
+| `models/` | model settings | logits model | studying U-Net/models |
+| `training/` | config/loaders/model | checkpoints/metrics | studying optimization |
+| `evaluation/` | checkpoint/labeled split | reports/errors | analyzing results |
+| `inference/` | checkpoint/new images | mask outputs | using a model |
+| `cli.py` | terminal args | calls above | studying application entry |
 
-- `data`: validation, manifests, transforms, loading, and raw-label mapping.
-- `models`: handwritten U-Net, DeepLab adapter, and model registry.
-- `training`: loss, loop, metrics writing, checkpoints, resume, and device.
-- `evaluation`: metrics tables, plots, and diagnostic visualizations.
-- `inference`: checkpoint-only prediction and output preservation.
-- `cli.py`: argument parsing and user-facing error boundary.
-
-## Change Rules
-
-Keep masks as class indices, keep model outputs as logits, and centralize paired
-geometry. A checkpoint contract change requires a schema decision and migration
-or explicit rejection. Shared trainer behavior must not branch on a particular
-model name.
-
-## Public Surface
-
-The stable beginner surface is the `segment` CLI and documented module classes.
-Underscore-prefixed helpers are internal. Add tests at the owning boundary and
-an end-to-end test when a change crosses multiple modules.
+Read dataset, transforms, U-Net, losses, then Trainer. Return to strict config,
+manifest audit, RNG persistence, and argparse details when a question requires
+them. Keep masks as integer classes, models returning logits, and geometric
+randomness shared between image and mask.

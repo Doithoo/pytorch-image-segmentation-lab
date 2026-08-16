@@ -1,31 +1,25 @@
-# 测试指南
+# 把测试当成可运行的行为说明
 
 [English](README.md) | [贡献指南](../CONTRIBUTING.zh-CN.md)
 
-测试使用微型合成 fixture，绝不能下载 Oxford、预训练权重或任何网络资源。
+使用项目前不必通读测试，但几组小输入比长文更适合理解边界情况。测试全部使用合成数据，
+不下载 Oxford 或预训练权重。
 
-## 运行测试
+## 初学者推荐先看
+
+1. `test_metrics.py`：手算一个混淆矩阵，再对照 IoU/Dice。
+2. `test_dataset.py`：看 1/2/3 怎样映射，以及未知值为何失败。
+3. `test_examples.py`：五个教学示例应怎样运行。
+4. `test_end_to_end.py`：从配对数据到训练、评测和预测的完整闭环。
 
 ```bash
-uv run pytest
+uv run pytest tests/test_metrics.py -v
 uv run pytest tests/test_end_to_end.py -v
+uv run pytest
 ```
 
-红绿开发时运行聚焦文件，提交前运行完整套件。发布验证会把弃用警告当作错误。
+新增行为时先写一个会失败的聚焦测试，确认失败原因正确，再实现最小修改。断言用户能观察
+的文件、值、形状和错误消息，不要锁定私有函数调用次数。
 
-## 测试层级
-
-单元测试覆盖标签映射、成对变换、损失、指标、U-Net 形状、配置和 checkpoint
-schema。集成测试覆盖清单、CLI、评估、推理、脚本和打包。端到端测试会准备合成配对、
-在 CPU 训练、评估并预测。
-
-## Fixtures
-
-`paired_data` 创建对齐 RGB 图像和 Oxford 风格掩码。`oxford_data` 增加合成官方
-划分文件。`trained_run` 创建微型真实 checkpoint。优先使用这些行为 fixture，
-不要依赖 mock。
-
-## 增加覆盖
-
-先写一个聚焦的失败测试。断言可观察的文件、值、形状或错误，不要断言私有调用次数。
-修复警告而不是过滤。把昂贵数据和模型下载留在 CI 之外。
+`conftest.py` 提供 `paired_data`、`oxford_data` 和 `trained_run` 等小型真实对象。优先
+使用这些 fixture；网络、完整数据集和大模型不应进入测试。

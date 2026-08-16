@@ -1,35 +1,18 @@
-# Test Guide
+# Tests as Executable Behavior
 
 [简体中文](README.zh-CN.md) | [Contributing](../CONTRIBUTING.md)
 
-Tests use tiny synthetic fixtures. They must not download Oxford, pretrained
-weights, or any network resource.
-
-## Run Tests
+Learners need not read every test, but small inputs explain edge cases well.
+Start with metrics, dataset mapping, examples, then end-to-end.
 
 ```bash
-uv run pytest
+uv run pytest tests/test_metrics.py -v
 uv run pytest tests/test_end_to_end.py -v
+uv run pytest
 ```
 
-Use a focused file during red-green development, then run the full suite before
-committing. Release verification treats deprecation warnings as errors.
-
-## Test Layers
-
-Unit tests cover label mapping, paired transforms, loss, metrics, U-Net shapes,
-config, and checkpoint schemas. Integration tests cover manifests, CLI,
-evaluation, inference, scripts, and packaging. The end-to-end test prepares
-synthetic pairs, trains on CPU, evaluates, and predicts.
-
-## Fixtures
-
-`paired_data` creates aligned RGB images and Oxford-style masks. `oxford_data`
-adds synthetic official split files. `trained_run` creates a tiny real
-checkpoint. Prefer these behavioral fixtures over mocks.
-
-## Adding Coverage
-
-Write a focused failing test first. Assert observable files, values, shapes, or
-errors rather than private call counts. Fix warnings instead of filtering them.
-Keep expensive data and model downloads outside CI.
+Tests use synthetic data and never download Oxford or pretrained weights. For a
+behavior change, write a focused failing test, confirm the reason, implement the
+smallest fix, then run the full suite. Assert observable files, values, shapes,
+and errors rather than private calls. Reuse `paired_data`, `oxford_data`, and
+`trained_run` fixtures before introducing mocks.

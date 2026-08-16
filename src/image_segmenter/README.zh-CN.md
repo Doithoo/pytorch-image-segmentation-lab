@@ -1,34 +1,31 @@
-# 包指南
+# 核心代码包怎么读
 
 [English](README.md) | [代码导览](../../docs/code-tour.zh-CN.md)
 
-`image_segmenter` 是安装后的生产包。依赖从 CLI 编排指向聚焦的数据、模型、训练、
-评估和推理模块。
+这里是安装后由 `segment` 命令调用的代码。第一次先运行 `examples/`，再把本页放在编辑器
+旁边，沿调用顺序读正式实现。
 
-## 从这里开始
-
-先读 `config.py`，再读 `data/dataset.py`、`models/unet.py` 和
-`training/losses.py`。它们定义系统其余部分传递的契约。追踪调用时运行 dry-run。
-
-```bash
-uv run segment train --config configs/learning_minimal.yaml --dry-run
+```text
+segment train
+  -> cli.main()                    解析命令与显示错误
+  -> load_config()                 合并并校验配置
+  -> train_from_config()           创建数据、模型、loss 和 optimizer
+  -> Trainer.fit()                 训练、验证和写指标
+  -> save_checkpoint()             保存 best.pt / last.pt
 ```
 
-## 模块职责
+| 目录/文件 | 输入 | 输出 | 什么时候读 |
+| --- | --- | --- | --- |
+| `config.py` | 默认值、YAML、覆盖 | 最终配置 | 参数不符合预期时 |
+| `data/` | manifest、图片、原始 mask | Tensor batch | 学习数据管道时 |
+| `models/` | 模型名与尺寸 | logits 模型 | 学 U-Net/换模型时 |
+| `training/` | 配置、loader、模型 | checkpoint、metrics | 学优化循环时 |
+| `evaluation/` | checkpoint、有标签 split | JSON、CSV、错误图 | 分析结果时 |
+| `inference/` | checkpoint、新图片 | 原始/彩色/叠加 mask | 使用模型时 |
+| `cli.py` | 终端参数 | 调用以上模块 | 理解应用入口时 |
 
-- `data`：校验、清单、变换、加载和原始标签映射。
-- `models`：手写 U-Net、DeepLab 适配器和模型注册表。
-- `training`：损失、循环、指标写入、checkpoint、恢复和设备。
-- `evaluation`：指标表格、曲线和诊断可视化。
-- `inference`：只依赖 checkpoint 的预测和输出保真。
-- `cli.py`：参数解析和面向用户的错误边界。
+第一遍推荐 `dataset.py -> transforms.py -> unet.py -> losses.py -> trainer.py`。配置严格解析、
+manifest 审计、checkpoint RNG 和 CLI argparse 可以在遇到相关问题时再读。
 
-## 修改规则
-
-掩码保持类别索引，模型输出保持 logits，成对几何集中管理。Checkpoint 契约改变
-需要 schema 决策以及迁移或明确拒绝。共享 trainer 行为不能按特定模型名分支。
-
-## 公共接口
-
-稳定的初学者接口是 `segment` CLI 和文档化模块类。下划线开头的 helper 属于内部
-实现。在职责模块增加测试；跨多个模块的变化还要增加端到端测试。
+修改代码时保持三个基本事实：mask 是整数类别，模型返回 logits，所有随机几何对 image
+与 mask 使用同一选择。跨多个模块的行为变化需要端到端测试。

@@ -1,49 +1,65 @@
-# 代码导览
+# 代码导览：先运行什么，再读哪里
 
 [English](code-tour.md) | [返回 README](../README.zh-CN.md)
 
-包结构有意保持小巧。建议沿着一个样本从清单行走到预测结果，不要按字母顺序阅读
-文件。
+完整工程代码比课堂伪代码长，因为它还要处理错误、配置、保存和恢复。第一次不必顺序
+读完 `src/`；沿一张图片从 manifest 到预测结果，更容易建立整体认识。
 
-## 数据边界
+## 推荐阅读顺序
 
-`data/manifest.py` 校验配对的图像和掩码并写出可移植 CSV。Oxford 逻辑位于这里和
-`scripts/download_data.py`，Dataset 不需要知道归档结构。`data/transforms.py`
-负责成对几何变换，`data/dataset.py` 加载一行并把原始标签映射为训练索引。
+| 步骤 | 先运行 | 再阅读 | 重点 |
+| --- | --- | --- | --- |
+| 1 | `examples/01_mask_and_logits.py` | `data/dataset.py::map_mask` | 原始值怎样成为目标 |
+| 2 | `examples/02_paired_transform.py` | `data/transforms.py` | 图片与掩码怎样保持对齐 |
+| 3 | `examples/03_dataloader_batch.py` | `data/dataset.py` | 单个样本怎样组成 batch |
+| 4 | `examples/04_minimal_training_loop.py` | `models/unet.py`、`training/losses.py` | logits 和 loss 从哪里来 |
+| 5 | `segment train ... --dry-run` | `training/train.py`、`trainer.py` | 正式组件怎样组装 |
+| 6 | `examples/05_checkpoint_overlay.py` | `inference/predictor.py` | checkpoint 怎样变成掩码 |
 
-不变量：掩码始终是整数类别 ID，原始标签 3 在进入损失或指标前变为忽略索引 255。
+## 数据从一行 CSV 开始
 
-## 模型与损失边界
+`data/manifest.py` 扫描、校验并划分图片/掩码对，写出相对路径 CSV。Oxford 官方列表
+和通用配对目录的差异只存在于准备阶段；训练时都交给 `SegmentationDataset`。
 
-`models/unet.py` 是清晰可读的主模型。四级编码特征成为 skip connection；解码块
-上采样并拼接它们。注册表以同一 logits 契约返回 U-Net 或进阶 DeepLab 适配器。
+Dataset 每次读取一行，打开 RGB 图片和单通道掩码，执行同一组几何变换，再用 `map_mask`
+把原始值映射到 0、1、255。这里值得逐行读，因为错误标签会影响后面所有模块。
 
-`training/losses.py` 组合交叉熵和前景 soft Dice，同时排除忽略像素。它单独返回
-各损失分量，让日志清楚显示优化器在最小化什么。
+## 模型只负责图片到 logits
 
-## 训练边界
+`models/unet.py` 是主学习模型。输入 `[B,3,H,W]`，输出 `[B,2,H,W]`，不知道 CSV、
+标签值或 artifact 目录。
 
-`training/train.py` 组装配置、DataLoader、模型、优化器、调度器和设备。
-`training/trainer.py` 管理 epoch 循环，并用验证集宠物 IoU 选择 `best.pt`。
-`training/checkpoint.py` 通过 schema 校验原子保存模型及恢复状态。
+`models/registry.py` 根据配置名称创建模型；`models/deeplab.py` 把 torchvision 的字典
+输出转换成相同 logits 形状。第一遍可跳过 DeepLab，先完整读完 80 行 U-Net。
+
+## loss 和 Trainer 怎样连接
+
+`training/losses.py` 组合交叉熵与 foreground soft Dice，并过滤 ignore index。
+`training/train.py` 负责从配置创建 Dataset、DataLoader、模型、optimizer、scheduler 和
+运行目录；`training/trainer.py` 执行 epoch，并保存 best/last checkpoint。
 
 ```bash
 uv run segment train --config configs/learning_minimal.yaml --dry-run
 ```
 
-阅读这三个模块时运行该命令：它会跨过每个边界一次，不依赖 notebook 的隐藏状态。
+这条命令会经过上述所有模块一次。调试时从 CLI 入口向下追踪，比从几十个 helper 猜调用
+关系更快。
 
-## 评估与推理边界
+## 评测与推理的区别
 
-`evaluation/metrics.py` 在有效像素上累积混淆矩阵。`evaluation/evaluate.py` 恢复
-checkpoint、写表格、排列最差案例并绘制对比。`evaluation/visualization.py` 将
-原始掩码与面向人类的彩色图严格分开。
+`evaluation/metrics.py` 只做计数和公式；`evaluation/evaluate.py` 加载有标签 Dataset，
+写 JSON/CSV 并选择代表图；`evaluation/visualization.py` 把原始类别掩码与展示颜色分开。
 
-`inference/predictor.py` 从 checkpoint 恢复模型和预处理，在网络尺寸预测后用
-最近邻插值把类别索引还原到原图尺寸。
+`inference/predictor.py` 不需要目标掩码。它从 checkpoint 恢复模型与预处理，对图片预测，
+再把类别索引还原到原图尺寸。
 
-## CLI 边界
+## 第一遍可以跳过
 
-`cli.py` 解析命令，并把预期错误变成简洁消息。耗时工作前会完成配置解析。下一步
-阅读[配置流](configuration-flow.zh-CN.md)，再用五个
-[示例](../examples/README.zh-CN.md)作为聚焦入口。
+- `config.py` 的严格类型校验细节；先会用 `show-config`。
+- `manifest.py` 的哈希、Oxford 审计辅助函数；先看 Dataset 读取一行。
+- `checkpoint.py` 的 RNG 状态；先分清 best 与 last。
+- `cli.py` 的 argparse 声明；它主要负责终端界面与错误转换。
+- `evaluation/visualization.py` 的绘图像素细节；先读输出文件。
+
+遇到配置覆盖问题再看[配置流](configuration-flow.zh-CN.md)，遇到公式问题再看
+[系统原理](how-it-works.zh-CN.md)。

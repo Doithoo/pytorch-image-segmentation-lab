@@ -1,57 +1,42 @@
-# Experiments
+# Reproducible Segmentation Experiments
 
 [简体中文](experiments.zh-CN.md) | [Back to README](../README.md)
 
-An experiment answers one written question. Keep data membership, seed,
-evaluation protocol, and all unrelated fields fixed.
+Write one question, a prediction, fixed settings, the single change, and the
+validation evidence before running. The test split is reserved for the final
+selected setting.
 
-## Establish A Baseline
-
-Run the learning configuration unchanged first. Save its resolved config,
-manifest hashes, metrics, and best checkpoint. A failed or slow baseline is
-useful information; do not conceal it by changing several knobs at once.
-
-```bash
-uv run segment show-config --config configs/learning_minimal.yaml
-uv run segment train --config configs/learning_minimal.yaml
-```
-
-## Change One Variable
-
-Examples of focused questions:
-
-- Does foreground Dice improve pet IoU over cross-entropy alone?
-- Does a wider U-Net help enough to justify time and memory?
-- Does horizontal flipping improve validation performance?
-- How does the handwritten U-Net compare with DeepLabV3 under clearly recorded
-  pretrained-weight conditions?
-
-Give each run a distinct name. Use `--set` for a compact one-variable change,
-then inspect the printed effective config.
+## Baseline and focused comparisons
 
 ```bash
 uv run segment train --config configs/learning_minimal.yaml \
-  --set loss.cross_entropy_weight 0.5 \
-  --set loss.dice_weight 0.5 --set run_name ce-dice
+  --set run_name baseline-ce
 ```
 
-## Compare Evidence
+Compare CE against CE+Dice:
 
-Compare validation pet IoU for model selection, training/validation curves for
-optimization behavior, and worst-case overlays for error character. Record run
-time and device. Do not report test results for every attempted setting: that
-turns the test split into a validation set.
+```bash
+uv run segment train --config configs/learning_minimal.yaml \
+  --set run_name exp-ce
+uv run segment train --config configs/learning_minimal.yaml \
+  --set loss.cross_entropy_weight 0.5 \
+  --set loss.dice_weight 0.5 \
+  --set run_name exp-ce-dice
+```
 
-Global pet IoU and mean per-image pet IoU answer different questions. Always
-name the statistic. An empty-foreground image is excluded from the per-image
-mean when both target and prediction are empty.
+Other useful single changes are `model.base_channels: 8` versus 16 and
+`data.horizontal_flip: 0.0` versus 0.5. Keep manifests, seed, epochs, limits,
+and preprocessing fixed. Compare validation pet IoU, curves, runtime, and the
+same sample overlays. Loss values are not directly comparable when the loss
+definition changes.
 
-## Avoid Invalid Comparisons
+The default U-Net and pretrained DeepLab configs are complete-system
+comparisons, not pure architecture ablations: initialization, batch, LR, and
+epochs differ. State that limitation.
 
-Do not compare runs with different split membership, hidden preprocessing,
-sample limits, or pretrained initialization as if only the named model changed.
-Do not select a result because its test score is highest. Do not infer a general
-claim from one seed without stating that limitation.
+Avoid changed memberships, multiple simultaneous changes, selecting by test,
+keeping only a lucky seed, and universal claims from one run. A report should
+include manifest hashes, resolved configs, validation results, final test only
+after selection, matched visual cases, environment/runtime, and limitations.
 
-Use [Reference Run](reference-run.md) as the reporting template and
-[Configuration Flow](configuration-flow.md) to audit overrides.
+See the [reference run](reference-run.md) for a complete record.

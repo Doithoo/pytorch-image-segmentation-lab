@@ -1,59 +1,79 @@
-# 配置参考
+# 配置参数参考
 
 [English](config-reference.md) | [返回 README](../README.zh-CN.md)
 
-所有 YAML 键都映射到 `config.py` 中的类型化 dataclass。本页解释意图；精确的当前
-默认值请使用 `show-config` 查看。
+先用现成配置跑通，再回来查字段。精确默认值以 `segment show-config` 和
+`src/image_segmenter/config.py` 为准；这里解释每个字段何时需要修改。
+
+## data
+
+| 字段 | 含义 | 初学者建议 |
+| --- | --- | --- |
+| `data_dir` | 原始数据根目录 | Oxford 使用 `data/raw` |
+| `manifest_dir` | train/valid/test CSV 目录 | 每个新数据集使用独立目录 |
+| `image_size` | 网络方形输入边长，需为 16 的倍数 | 从 128 开始；增大前先看内存 |
+| `normalize_mean/std` | RGB 归一化 | 与训练和推理保持一致 |
+| `label_map` | 原始像素值到类别 0/1 | 先打印原始 mask 唯一值 |
+| `ignore_values` | 不参与 loss/指标的原始值 | Oxford 为 `[3]` |
+| `split_ratios` | 通用数据 train/valid/test 比例 | 三项和为 1，且实际样本不能产生空 split |
+| `seed` | 通用切分或 Oxford trainval 切分种子 | 比较实验时固定 |
+| `num_workers` | DataLoader 子进程数 | 先用 0，稳定后再增加 |
+| `pin_memory` | CUDA 主机页锁定内存 | CPU/MPS 通常保持 false |
+| `horizontal_flip` | 训练时水平翻转概率 | 先用 0.5；方向有语义时关闭 |
+| `max_*_samples` | 各 split 的样本上限 | 入门配置用于缩短运行；正式结果设 null |
+
+图片和掩码都会缩放为 `image_size x image_size`；图片双线性、掩码最近邻。当前配置没有
+padding/crop 模式。
+
+## model
+
+| 字段 | 含义 | 限制/建议 |
+| --- | --- | --- |
+| `name` | `unet_small` 或 `deeplabv3_resnet50` | 第一次用 U-Net |
+| `in_channels` | 输入通道数 | 当前 RGB 流程必须为 3 |
+| `num_classes` | 输出类别数 | 当前二类流程必须为 2 |
+| `base_channels` | U-Net 起始宽度 | 8/16 适合练习，32 用于参考运行 |
+| `pretrained` | 是否加载预训练权重 | U-Net 必须 false；DeepLab true 会联网 |
+
+`base_channels` 也传入统一模型工厂，但 DeepLab 不使用它。预训练与随机初始化对比时要
+把初始化差异写进结论。
+
+## loss
+
+| 字段 | 含义 | 示例 |
+| --- | --- | --- |
+| `name` | 可读的 loss 方案名称 | `cross_entropy` / `cross_entropy_dice` |
+| `cross_entropy_weight` | CE 系数，非负 | 入门为 1.0 |
+| `dice_weight` | foreground soft Dice 系数，非负 | 参考为 0.5 |
+| `ignore_index` | 映射后忽略值 | Oxford 为 255，不能是 0/1 |
+
+两个权重不能同时为 0。`name` 用于说明意图，实际组合由权重决定。
+
+## train
+
+| 字段 | 含义 | 初学者建议 |
+| --- | --- | --- |
+| `epochs` | 计划总轮数 | 先 2；参考运行 25 |
+| `batch_size` | 每次优化的图片数 | OOM 时先减半 |
+| `lr` | AdamW 学习率 | 从现成配置开始，不要盲目照搬其他任务 |
+| `weight_decay` | AdamW 权重衰减 | 基线保持 `1e-4` |
+| `optimizer` | 优化器 | 当前只支持 `adamw` |
+| `scheduler` | `none` 或 `cosine` | 短练习 none，长运行 cosine |
+| `grad_clip` | 梯度范数上限，0 表示关闭 | 出现不稳定前保持 0 |
+| `seed` | 模型、shuffle 和变换 seed | 受控对比时固定 |
+
+cosine 的 `T_max` 使用计划总 epoch。恢复 cosine checkpoint 时不能修改 `epochs`；无
+scheduler 的运行可以增加总轮数继续训练。
 
 ## 顶层字段
 
-- `device`：`auto`、`cpu`、`cuda` 或 `mps`。Auto 依次选择 CUDA、MPS、CPU；
-  显式指定不可用设备会报错。
-- `output_dir`：运行产物根目录。
-- `run_name`：稳定的子目录名；省略时自动生成。
-- `log_level`：标准 Python 日志级别。
+| 字段 | 含义 |
+| --- | --- |
+| `device` | `auto`、`cpu`、`cuda` 或 `mps` |
+| `output_dir` | 所有本地运行产物的根目录 |
+| `run_name` | 子目录名；null 时自动生成 |
+| `log_level` | 可填 `debug/info/warning/error/critical`；当前只解析和校验，尚不改变 CLI 输出 |
 
-## 数据字段
-
-- `data.data_dir`：包含图像、mask 和可选 Oxford 标注的本地根目录。
-- `data.manifest_dir`：包含 `train.csv`、`valid.csv` 和 `test.csv` 的目录。
-- `data.image_size`：方形网络尺寸，必须为正且能被 16 整除。
-- `data.label_map`：原始整数到类别索引的映射。Oxford 使用 `{1: 1, 2: 0}`。
-- `data.ignore_values`：映射到损失忽略索引的原始值；Oxford 使用 `[3]`。
-- `data.split_ratios`：总和为 1 的通用配对数据 train/valid/test 比例；Oxford
-  改用官方划分策略。
-- `data.normalize_mean/std`：三个图像通道值。
-- `data.horizontal_flip`：训练专用的 0 到 1 概率。
-- `data.num_workers`、`data.pin_memory`：DataLoader 控制项。
-- `data.max_*_samples`：入门实验可选的有界子集。
-- `data.seed`：范围为 0 到 4,294,967,295 的清单划分种子。
-
-## 模型与损失字段
-
-- `model.name`：`unet_small` 或 `deeplabv3_resnet50`。
-- `model.in_channels`：RGB 使用 3。
-- `model.num_classes`：背景/宠物使用 2。
-- `model.base_channels`：U-Net 第一层宽度；越大越占内存。
-- `model.pretrained`：进阶 DeepLab 权重开关；可能下载权重。
-- `loss.name`：`cross_entropy` 或 `cross_entropy_dice`。
-- `loss.cross_entropy_weight`、`loss.dice_weight`：非负，且总和必须为正。
-- `loss.ignore_index`：映射后目标值 255。
-
-## 训练字段
-
-- `train.batch_size`、`train.epochs`：正整数优化控制项。
-- `train.lr`、`train.weight_decay`：学习率与正则化控制项。
-- `train.optimizer`：当前为 `adamw`。
-- `train.scheduler`：`none` 或 `cosine`。
-- `train.seed`：范围为 0 到 4,294,967,295 的整数，用于设置 Python、NumPy、
-  PyTorch、worker 和采样随机种子。
-- `train.grad_clip`：可选最大梯度范数；0 表示关闭裁剪。
-
-## 校验配置文件
-
-```bash
-uv run segment show-config --config configs/reference_unet.yaml
-```
-
-带注释的文件说明见 [configs](../configs/README.zh-CN.md)。图像尺寸、归一化、标签
-或模型构造的变化会影响 checkpoint 兼容性，应创建新的运行。
+每个实验使用独立 `run_name`。已含 checkpoint 的目录不会被新训练覆盖；恢复时 checkpoint
+必须属于目标运行目录。`log_level` 是为配置兼容保留的字段，不应把它当作当前可用的
+日志开关。

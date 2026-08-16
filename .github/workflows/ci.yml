@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,9 +25,29 @@ jobs:
         run: uv sync --locked --extra dev
       - name: Lint
         run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy
       - name: Test without network-dependent assets
         run: uv run pytest -W error::DeprecationWarning
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install locked development environment
+        run: uv sync --locked --extra dev
       - name: Build distributions
         run: uv run python -m build
       - name: Validate package metadata
         run: uv run twine check dist/*
+      - name: Smoke test wheel in a clean environment
+        run: |
+          uv venv --python 3.12 /tmp/image-segmenter-wheel-smoke
+          uv pip install --python /tmp/image-segmenter-wheel-smoke/bin/python dist/*.whl
+          /tmp/image-segmenter-wheel-smoke/bin/segment --version

@@ -27,6 +27,8 @@ def test_project_metadata_describes_the_published_package() -> None:
     assert "Programming Language :: Python :: 3.12" in project["classifiers"]
     assert project["urls"]["Repository"].endswith("Doithoo/pytorch-image-segmentation-lab")
     assert any(dependency.startswith("matplotlib") for dependency in project["optional-dependencies"]["dev"])
+    assert any(dependency.startswith("mypy") for dependency in project["optional-dependencies"]["dev"])
+    assert any(dependency.startswith("types-PyYAML") for dependency in project["optional-dependencies"]["dev"])
 
 
 def test_wheel_declares_typed_package_and_all_reference_configs() -> None:
@@ -57,11 +59,19 @@ def test_release_scaffolding_covers_ci_templates_and_local_check() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     for version_number in ('"3.10"', '"3.11"', '"3.12"'):
         assert version_number in workflow
-    for command in ("ruff check", "pytest", "python -m build", "twine check"):
+    for command in (
+        "ruff check",
+        "ruff format --check",
+        "mypy",
+        "pytest",
+        "python -m build",
+        "twine check",
+        "segment --version",
+    ):
         assert command in workflow
     assert (ROOT / ".github/ISSUE_TEMPLATE/bug.yml").is_file()
     assert (ROOT / ".github/ISSUE_TEMPLATE/learning-question.yml").is_file()
     assert (ROOT / ".github/pull_request_template.md").is_file()
     makefile = (ROOT / "Makefile").read_text()
-    assert "check: lint test build metadata" in makefile
+    assert "check: lint format typecheck test build metadata" in makefile
     assert "twine check dist/*" in makefile

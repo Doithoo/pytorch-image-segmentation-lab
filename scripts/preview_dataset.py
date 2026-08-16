@@ -21,11 +21,7 @@ def _resolve(manifest: Path, value: str) -> Path:
 
 
 def _map_oxford_mask(raw: np.ndarray) -> np.ndarray:
-    unexpected = sorted(
-        {int(value) for value in np.unique(raw)}
-        - set(OXFORD_LABEL_MAP)
-        - OXFORD_IGNORE_VALUES
-    )
+    unexpected = sorted({int(value) for value in np.unique(raw)} - set(OXFORD_LABEL_MAP) - OXFORD_IGNORE_VALUES)
     if unexpected:
         raise ValueError(f"mask contains unsupported Oxford labels: {unexpected}")
     mapped = np.full(raw.shape, 255, dtype=np.uint8)
@@ -61,10 +57,10 @@ def create_dataset_preview(
 
     rendered_rows: list[Image.Image] = []
     panel_size: tuple[int, int] | None = None
-    for row in rows:
-        with Image.open(_resolve(manifest_path, row["image_path"])) as source:
+    for manifest_row in rows:
+        with Image.open(_resolve(manifest_path, manifest_row["image_path"])) as source:
             image = source.convert("RGB")
-        with Image.open(_resolve(manifest_path, row["mask_path"])) as source:
+        with Image.open(_resolve(manifest_path, manifest_row["mask_path"])) as source:
             raw = np.asarray(source.convert("L"))
         if panel_size is None:
             panel_size = image.size
@@ -98,9 +94,9 @@ def create_dataset_preview(
         color="white",
     )
     top = 0
-    for row in rendered_rows:
-        canvas.paste(row, (0, top))
-        top += row.height
+    for rendered_row in rendered_rows:
+        canvas.paste(rendered_row, (0, top))
+        top += rendered_row.height
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(destination)

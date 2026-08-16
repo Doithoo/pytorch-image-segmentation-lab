@@ -1,30 +1,23 @@
-# 配置文件
+# 三份可直接运行的配置
 
 [English](README.md) | [配置参考](../docs/config-reference.zh-CN.md)
 
-这些 YAML 文件描述可复现实验。训练前始终检查最终解析配置。
+不要从空白 YAML 开始。先选择最接近目标的一份，运行 `show-config`，再用一个有名字的
+覆盖做实验。
 
-## 最小学习配置
-
-`learning_minimal.yaml` 是第一个运行：CPU 友好的样本上限、128 像素输入、窄
-U-Net、两轮和交叉熵。它用于证明流程，其分数不是参考结果。
+| 配置 | 用途 | 主要特点 |
+| --- | --- | --- |
+| `learning_minimal.yaml` | 第一次跑通 | 128 px、最多 256/64/64 样本、两轮、CE、小 U-Net |
+| `reference_unet.yaml` | 完整手写模型实验 | 256 px、25 轮、base 32、CE+Dice、cosine |
+| `deeplabv3_resnet50.yaml` | 进阶方案对照 | 预训练 DeepLabV3、batch 4、15 轮 |
 
 ```bash
 uv run segment show-config --config configs/learning_minimal.yaml
 uv run segment train --config configs/learning_minimal.yaml --dry-run
 ```
 
-## 参考 U-Net
+比较实验时不要原地修改参考配置。使用 `--set` 和不同 `run_name`，运行目录中的
+`config.yaml` 会保存最终值。
 
-`reference_unet.yaml` 是固定的 25 轮实测运行，使用完整的已准备训练/验证划分以及
-交叉熵加前景 Dice。比较想法时不要原地修改；复制文件或使用带名称的覆盖。
-
-## DeepLabV3 对照
-
-`deeplabv3_resnet50.yaml` 是进阶架构对照，其预训练设置可能下载 torchvision
-权重。必须记录是否使用权重；预训练模型与随机初始化 U-Net 不是纯架构对照。
-
-## 安全覆盖
-
-只用 `--set` 改一个明确变量，并设置不同 `run_name`。图像尺寸必须能被 16 整除。
-模型类别、原始标签、忽略索引和预处理都会成为 checkpoint 兼容性数据。
+DeepLab 的预训练权重可能联网下载。它与随机初始化 U-Net 的默认对比包含初始化、模型、
+batch 和学习率等多项差异，应称为完整方案对比，而不是纯架构消融。

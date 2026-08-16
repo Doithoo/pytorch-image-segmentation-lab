@@ -104,6 +104,14 @@ def _validate_resume(
     current_values = to_dict(config)
     if saved_values["model"] != current_values["model"]:
         raise ValueError("checkpoint model configuration does not match the current run")
+    if (
+        saved_values["train"]["scheduler"] == "cosine"
+        and saved_values["train"]["epochs"] != current_values["train"]["epochs"]
+    ):
+        raise ValueError(
+            "cannot change train.epochs when resuming a cosine schedule; "
+            "restart the run or keep the checkpoint's planned total"
+        )
     if checkpoint["label_map"] != config.data.label_map:
         raise ValueError("checkpoint label mapping does not match the current run")
     if checkpoint["ignore_index"] != config.loss.ignore_index:
@@ -157,14 +165,22 @@ def train_from_config(
         config.loss.ignore_index,
         config.data.max_valid_samples,
     )
-    loader_options = {
-        "batch_size": config.train.batch_size,
-        "num_workers": config.data.num_workers,
-        "pin_memory": config.data.pin_memory,
-        "worker_init_fn": _seed_worker,
-    }
-    train_loader = DataLoader(train_dataset, shuffle=True, **loader_options)
-    valid_loader = DataLoader(valid_dataset, shuffle=False, **loader_options)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=config.train.batch_size,
+        shuffle=True,
+        num_workers=config.data.num_workers,
+        pin_memory=config.data.pin_memory,
+        worker_init_fn=_seed_worker,
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=config.train.batch_size,
+        shuffle=False,
+        num_workers=config.data.num_workers,
+        pin_memory=config.data.pin_memory,
+        worker_init_fn=_seed_worker,
+    )
 
     model = create_model(
         config.model.name,

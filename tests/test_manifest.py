@@ -15,17 +15,25 @@ def _rows(path: Path) -> list[dict[str, str]]:
 def test_prepare_pairs_and_splits_deterministically(paired_data: Path, tmp_path: Path) -> None:
     first = tmp_path / "first"
     second = tmp_path / "second"
-    prepare_paired_manifests(
-        paired_data, first, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3}
-    )
-    prepare_paired_manifests(
-        paired_data, second, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3}
-    )
+    prepare_paired_manifests(paired_data, first, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3})
+    prepare_paired_manifests(paired_data, second, [0.8, 0.1, 0.1], seed=7, label_map={1: 1, 2: 0}, ignore_values={3})
     assert [len(_rows(first / f"{split}.csv")) for split in ("train", "valid", "test")] == [8, 1, 1]
     assert [row["sample_id"] for row in _rows(first / "train.csv")] == [
         row["sample_id"] for row in _rows(second / "train.csv")
     ]
     assert b"\r\n" not in (first / "train.csv").read_bytes()
+
+
+def test_prepare_rejects_ratios_that_produce_an_empty_split(paired_data: Path, tmp_path: Path) -> None:
+    with pytest.raises(ManifestError, match="empty split"):
+        prepare_paired_manifests(
+            paired_data,
+            tmp_path / "manifests",
+            [0.8, 0.2, 0.0],
+            seed=7,
+            label_map={1: 1, 2: 0},
+            ignore_values={3},
+        )
 
 
 def test_missing_mask_is_reported_with_invalid_csv(paired_data: Path, tmp_path: Path) -> None:
@@ -64,9 +72,7 @@ def test_manifest_paths_resolve_from_manifest_directory(paired_data: Path, tmp_p
 
 def test_oxford_split_is_stratified_and_official_test_is_untouched(oxford_data: Path, tmp_path: Path) -> None:
     output = tmp_path / "manifests"
-    paths = prepare_oxford_manifests(
-        oxford_data, output, seed=11, label_map={1: 1, 2: 0}, ignore_values={3}
-    )
+    paths = prepare_oxford_manifests(oxford_data, output, seed=11, label_map={1: 1, 2: 0}, ignore_values={3})
     train_rows = _rows(paths["train"])
     valid_rows = _rows(paths["valid"])
     test_rows = _rows(paths["test"])
@@ -84,9 +90,7 @@ def test_oxford_unlisted_archive_pairs_are_audited_and_excluded(oxford_data: Pat
     Image.new("L", (24, 24), color=1).save(oxford_data / "masks" / "extra_breed_99.png")
     output = tmp_path / "manifests"
 
-    paths = prepare_oxford_manifests(
-        oxford_data, output, seed=11, label_map={1: 1, 2: 0}, ignore_values={3}
-    )
+    paths = prepare_oxford_manifests(oxford_data, output, seed=11, label_map={1: 1, 2: 0}, ignore_values={3})
 
     listed = {row["sample_id"] for path in paths.values() for row in _rows(path)}
     assert "extra_breed_99" not in listed

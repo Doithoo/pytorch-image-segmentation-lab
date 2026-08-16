@@ -1,42 +1,48 @@
 # PyTorch 图像分割学习实验室
 
-[English](README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue)](pyproject.toml)
+[![CI](https://github.com/Doithoo/pytorch-image-segmentation-lab/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 
-这是一个小而完整的语义分割学习项目，适合已经接触过 PyTorch 张量和图像分类、
-准备理解像素级预测的学习者。主线使用手写 U-Net 和 Oxford-IIIT Pet，并完整展示
-成对变换、原始标签映射、忽略像素、损失、前景指标、checkpoint、评估与推理产物。
+**English version: [README.md](README.md)**
 
-本仓库优先保证学习价值和可复现性，而不是追逐榜单成绩。首个版本只支持二类语义
-分割，实例分割和全景分割有意不在范围内。
+通过一个可以真实运行的 PyTorch 项目，学习怎样把一张图片变成逐像素的宠物掩码。
+主线使用 Oxford-IIIT Pet、手写 U-Net 和二类语义分割，覆盖数据检查、成对变换、
+训练、IoU/Dice 评测、错误可视化和单图推理。
 
-## 你将构建什么
+![Oxford-IIIT Pet 图像、原始 trimap、训练掩码和叠加图](docs/assets/reference-unet-dataset-preview.png)
 
-一张 RGB 图像会变成每个像素的两个 logits：背景和宠物。训练采用 Oxford 官方
-trimap，并固定使用以下映射：
+## 这个项目适合谁
+
+适合已经接触过 Python、PyTorch Tensor、loss 和梯度，但还没有完整做过图像分割项目的
+学习者。不要求会手写 U-Net，也不要求先读论文。
+
+推荐学习时间约 **8–12 小时**。第一次先跑通一条短流程，再回头理解标签映射、skip
+connection、Dice loss 和全局/逐图指标。若 logits 和交叉熵仍然陌生，从
+[分割所需的最小概念](docs/tutorial/00-basics.zh-CN.md)开始。
+
+当前版本专注二类语义分割：类别 0 是背景，类别 1 是宠物。实例分割、多类分割和
+多边形标注不在第一阶段范围内。
+
+## 从这里开始
+
+第一次只完成下面这条路径：
 
 ```text
-1 -> pet
-2 -> background
-3 -> ignored/unclassified (training index 255)
+下载数据 -> 生成固定清单 -> 看一眼掩码 -> dry run -> 训练 -> 评测 -> 推理
 ```
 
-原始值 3 表示数据集中的未分类区域，不是第三个语义“边界类别”，既不参与损失，
-也不参与指标。最佳 checkpoint 由验证集宠物 IoU 选择；未改动的官方测试集只用于
-最终报告。
-
-## 快速开始
-
-需要 Python 3.10-3.12 和 [uv](https://docs.astral.sh/uv/)。默认学习配置可在 CPU
-运行，且不会下载预训练权重。
+需要 Python 3.10–3.12 和 [uv](https://docs.astral.sh/uv/)。安装锁定的开发环境：
 
 ```bash
 git clone https://github.com/Doithoo/pytorch-image-segmentation-lab.git
 cd pytorch-image-segmentation-lab
 uv sync --extra dev
+uv run segment --version
 ```
 
-下载并校验 Oxford-IIIT Pet，然后生成确定性清单。官方测试成员保持不变；上游
-trainval 样本按品种分别以 80/20 划分为训练集和验证集。
+下载并校验 Oxford-IIIT Pet，然后按官方列表保留测试集；上游 trainval 样本会按品种
+分别切成训练集和验证集。
 
 ```bash
 uv run python scripts/download_data.py --data-dir data/raw
@@ -47,85 +53,143 @@ uv run python scripts/preview_dataset.py data/manifests/train.csv \
   --output artifacts/dataset_preview.png --limit 4
 ```
 
-正式训练前先验证一个完整优化批次，再运行两轮小型学习实验。
+打开 `artifacts/dataset_preview.png`，先确认图片边缘和掩码边缘对齐。原始 trimap 的
+三个值会变成：
+
+```text
+1 -> pet
+2 -> background
+3 -> ignored/unclassified (training index 255)
+```
+
+值 3 是不参与训练和指标的未分类区域，不是模型需要预测的第三类。
+
+## 先检查一个 batch
+
+正式训练前执行一次真实的前向、损失、反向和参数更新：
 
 ```bash
 uv run segment train --config configs/learning_minimal.yaml --dry-run
-uv run segment train --config configs/learning_minimal.yaml
 ```
 
-评估保存的 checkpoint，并对一张图像预测掩码。请将示例路径替换为训练输出的
-实际路径。
+日志应包含类似内容：
+
+```text
+images: (8, 3, 128, 128)
+masks: (8, 128, 128) values=[0, 1, 255]
+logits: (8, 2, 128, 128)
+loss: ...
+dry-run OK
+```
+
+`dry-run OK` 只说明数据、模型、损失和反向传播已经连通，不表示模型学会了分割。
+
+接着运行两轮小实验：
 
 ```bash
-uv run segment evaluate --checkpoint artifacts/learning-unet/best.pt \
+uv run segment train --config configs/learning_minimal.yaml \
+  --set run_name first-unet
+```
+
+先打开 `artifacts/first-unet/config.yaml` 和 `metrics.csv`。前者回答“这次到底用了什么
+配置”，后者记录训练损失和验证集宠物 IoU 怎样变化。
+
+## 看看模型画出了什么
+
+在留出的测试集评测最佳 checkpoint，并预测一张图片：
+
+```bash
+uv run segment evaluate --checkpoint artifacts/first-unet/best.pt \
   --split test --plot --device cpu
-uv run segment predict --checkpoint artifacts/learning-unet/best.pt \
+uv run segment predict --checkpoint artifacts/first-unet/best.pt \
   --image data/raw/images/Abyssinian_1.jpg \
   --output artifacts/predictions/Abyssinian_1.png --device cpu
 ```
 
-## 分步学习
+评测不只给一个分数，还会保存逐类表格、逐图表格、代表样本和最差案例。推理分别保存
+机器可读的 0/1 掩码、彩色掩码和叠加图，避免把展示图片误当成训练标签。
 
-先运行 [examples](examples/README.zh-CN.md) 中的五个文件，再沿着
-[学习路径](docs/learning-path.zh-CN.md) 从张量形状走到完整实验。六章
-[教程](docs/tutorial/00-basics.zh-CN.md) 用概念、检查点和思考题讲解同一路径。
+![U-Net 预测、目标和像素错误](docs/assets/reference-unet-overlay.png)
 
-常用地图：
+主指标是验证集和测试集的宠物前景 IoU。背景很多时，pixel accuracy 可能很好看，
+但宠物轮廓仍然很差；因此项目使用 validation pet IoU 选择 `best.pt`，并让 official
+test split 留到最终报告。
 
-- [系统如何工作](docs/how-it-works.zh-CN.md)
-- [代码导览](docs/code-tour.zh-CN.md)
-- [配置流](docs/configuration-flow.zh-CN.md)
-- [完整配置参考](docs/config-reference.zh-CN.md)
-- [使用自己的成对数据](docs/using-your-data.zh-CN.md)
-- [进行受控实验](docs/experiments.zh-CN.md)
-- [实测参考实验](docs/reference-run.zh-CN.md)
+## 一次真实参考运行
 
-## 可以检查的产物
+仓库记录了一次 25 epoch 的 U-Net 实验。最佳 checkpoint 来自第 24 轮，验证集宠物
+IoU 为 `0.902836`；在 3,669 张官方测试图片上，宠物 IoU 为 `0.906669`，Dice 为
+`0.951050`。这些数字只适用于记录的数据清单、配置、代码 revision 和运行环境。
 
-训练会在单个运行目录中写入解析后的配置、环境元数据、每轮指标以及原子保存的
-`best.pt`/`last.pt`。评估会增加全局和逐图表格、示例对比、最差案例及可选损失
-曲线。推理会把机器可读的类别索引掩码与彩色掩码、叠加图分开保存。
+![参考运行的训练与验证损失](docs/assets/reference-unet-loss-curve.png)
 
-主指标是宠物前景 IoU。背景占比高时，像素准确率可能很好，但宠物掩码仍很差，
-因此它绝不用于选择 checkpoint。如果单张图的目标和预测都没有前景，IoU/Dice
-没有定义；项目会计数并从逐图均值中排除，而不是暗中当作满分。
+[参考运行说明](docs/reference-run.zh-CN.md)保留配置、环境、清单哈希、逐类/逐图指标和
+失败案例。当前仓库树不再保留 89 MB 的模型 checkpoint；重新训练时比较配置、manifest
+哈希和结果趋势，另行获得原 checkpoint 时再用记录的 SHA-256 校验文件。
 
-## 配置
+## 接着学什么
 
-- `configs/learning_minimal.yaml`：限制样本的 CPU 入门配置，128 像素、两轮、
-  仅交叉熵。
-- `configs/reference_unet.yaml`：已实测的 25 轮手写 U-Net 配置。
-- `configs/deeplabv3_resnet50.yaml`：进阶 torchvision 对照；预训练权重可能需要
-  单独联网下载。
+- 按[学习路线](docs/learning-path.zh-CN.md)完成五个阶段，每一阶段都有运行结果和检查点。
+- 用[教程索引](docs/tutorial/README.zh-CN.md)按问题选择章节，不必从头通读。
+- 用[代码导览](docs/code-tour.zh-CN.md)沿一张图片追踪 Dataset、U-Net、Trainer 和 Predictor。
+- 用[原理说明](docs/how-it-works.zh-CN.md)理解标签、损失、指标和 checkpoint 为什么这样设计。
+- 用[实验指南](docs/experiments.zh-CN.md)比较 CE/Dice、模型宽度、翻转和 DeepLabV3。
+- 遇到环境、数据、训练或推理错误时查[排错指南](docs/troubleshooting.zh-CN.md)。
 
-配置优先级为 `默认值 < YAML < --set < 专用 CLI 参数`。未知键和无效组合会在
-耗时操作之前失败。用以下命令检查最终值：
+## 换成自己的数据
+
+自定义数据使用同名图片/掩码对：
+
+```text
+my-data/
+├── images/sample-001.jpg
+└── masks/sample-001.png
+```
+
+先阅读[自己的数据指南](docs/using-your-data.zh-CN.md)。它说明怎样检查掩码唯一值、
+设置 `label_map`、生成独立 manifest、避免空切分，并在长训练前验证一个 batch。
+当前内置变换会把图片和掩码一起缩放为正方形；对医学图像或长宽比敏感的数据，应先
+评估形变影响，再实现 padding/cropping 策略。
+
+## 三份配置
+
+- `configs/learning_minimal.yaml`：CPU 可运行的 128 像素、两轮、小样本入门配置。
+- `configs/reference_unet.yaml`：已经实测的 25 轮手写 U-Net 配置。
+- `configs/deeplabv3_resnet50.yaml`：进阶 torchvision 对照，预训练权重需要联网下载。
+
+配置优先级是：
+
+```text
+代码默认值 < YAML 文件 < --set 覆盖 < 专用命令行参数
+```
 
 ```bash
 uv run segment show-config --config configs/learning_minimal.yaml
 uv run segment --help
 ```
 
-## 可复现性与限制
+## 项目结构
 
-清单记录划分来源和 SHA-256。Checkpoint 保存最终配置、标签映射、预处理、清单
-校验和、优化器状态和随机状态。随机种子可以减少差异，但设备内核和 PyTorch 版本
-仍可能改变浮点结果；应比较趋势和报告条件，而不是只盯一个小数分数。
+```text
+examples/                    先运行和阅读的 5 个小程序
+configs/                     入门、参考和模型对照配置
+docs/                        学习路线、教程、原理和实验指南
+scripts/                     下载、预览和绘图工具
+src/image_segmenter/         安装后运行的应用和可复用代码
+tests/                       单元、集成、CLI 和端到端测试
+data/manifests/              固定的数据成员与校验信息
+artifacts/                   本地训练、评测和预测产物（不提交）
+```
 
-参考结果只是当前实现和记录环境的证据，不保证每台机器都完全相同。Oxford-IIIT
-Pet 图像和标注沿用上游许可与署名；数据只下载到本地，不提交到本仓库。
-
-## 开发
+## 开发与贡献
 
 ```bash
 uv run ruff check .
+uv run ruff format --check .
 uv run pytest
 uv build
 uv run twine check dist/*
 ```
 
-提交修改前请阅读 [CONTRIBUTING.md](CONTRIBUTING.zh-CN.md)。测试只使用本地合成
-fixture，不会下载数据集或预训练模型。
-
-项目采用 [MIT License](LICENSE)。
+测试使用本地合成数据，不会下载 Oxford 数据集或预训练权重。提交修改前请阅读
+[贡献指南](CONTRIBUTING.zh-CN.md)。项目采用 [MIT License](LICENSE)。

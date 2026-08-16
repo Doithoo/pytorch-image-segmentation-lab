@@ -1,44 +1,72 @@
-# 配置流
+# 配置从哪里来，最后去了哪里
 
 [English](configuration-flow.md) | [返回 README](../README.zh-CN.md)
 
-配置显式且严格，在加载数据或构建模型前只解析一次。
+项目只维护一份最终 `ExperimentConfig`。命令行不会在训练中途偷偷改变参数；所有来源
+先合并、校验，再创建 Dataset 和模型。
 
-## 优先级
+## 覆盖顺序
 
 ```text
-code defaults < YAML file < --set override < dedicated CLI option
+config.py 默认值
+  < YAML 文件
+  < --set KEY VALUE
+  < --device / --output-dir 等专用参数
 ```
 
-后面的层级覆盖前面的值。`--device` 等专用参数适合一次性运行选择；YAML 应描述可
-复现实验；`--set` 适合进行一个受控变化。
+例如：
 
-## 运行前检查
+```bash
+uv run segment show-config --config configs/learning_minimal.yaml \
+  --set train.epochs 5 \
+  --set loss.dice_weight 0.5 \
+  --device cpu
+```
+
+`--set` 的值先按 JSON 解析，因此数字、布尔、null、列表和字典可以保持类型。字符串无法
+解析为 JSON 时按普通文本处理。
+
+## 为什么先运行 show-config
+
+配置文件名只是输入之一。真正运行的值可能还受到默认值和 CLI 覆盖影响。
 
 ```bash
 uv run segment show-config --config configs/learning_minimal.yaml
-uv run segment show-config --config configs/learning_minimal.yaml \
-  --set train.epochs 3 --set model.base_channels 8
 ```
 
-第一条命令打印所有最终字段。第二条展示带类型的点路径覆盖。未知路径、无效布尔值、
-不能整除的图像尺寸和不兼容标签映射都会立即失败。
+输出就是训练将使用的完整配置。训练开始后，同一份内容写入运行目录的 `config.yaml`。
+比较实验时应比较这份解析结果，不要只比较两个 YAML 文件。
 
-## 命令专用覆盖
+## 无效设置什么时候失败
 
-```bash
-uv run segment train --config configs/learning_minimal.yaml \
-  --set train.epochs 3 --device cpu --output-dir artifacts
+配置加载阶段会拒绝未知键、错误类型、无效模型名、非正尺寸、错误标签映射、冲突的
+ignore index、无效 loss 权重和不支持的设备。这样不会等到下载数据或训练十分钟后才
+发现 `epohs` 拼错。
+
+数据量是否足以生成非空 split 要在 `prepare-data` 扫描样本后才能判断，因此由 manifest
+准备阶段报告。
+
+## 配置怎样传入各模块
+
+```text
+CLI -> load_config/config_from_dict -> ExperimentConfig
+  -> data.*      Dataset、transform、DataLoader
+  -> model.*     U-Net/DeepLab 构造
+  -> loss.*      CE/Dice 和 ignore index
+  -> train.*     optimizer、scheduler、epoch
+  -> top-level   device、输出目录、run name
 ```
 
-这里 `--device cpu` 和 `--output-dir artifacts` 优先级最高。保存的 `config.yaml`
-是最终解析结果，而不只是输入 YAML 的副本。
+较小的函数继续接收明确参数，例如 `map_mask(raw, label_map, ignore_values, ignore_index)`，
+避免所有代码都依赖一个全局配置对象。
 
-## Checkpoint 恢复
+## checkpoint 与配置
 
-恢复训练会先校验模型构造、原始标签映射、忽略索引、预处理、损失与训练语义，
-以及训练/验证清单哈希，再加载优化器状态。数据路径与总轮数可以改变，其他训练
-行为不可改变。评估和推理从 checkpoint 元数据重建模型与预处理，不依赖当前默认值。
+checkpoint 保存训练时的完整配置。评测和推理优先使用 checkpoint 中的模型与预处理，
+不要求用户再次提供 YAML。
 
-字段含义参见[配置参考](config-reference.zh-CN.md)，安全对照方法参见
-[实验指南](experiments.zh-CN.md)。
+训练恢复更严格：当前配置可以改变输出位置和无 scheduler 时的最终 epoch，但模型、数据
+处理、loss、batch、标签与 manifest 必须一致。cosine 的总 epoch 属于调度计划，不能在
+恢复时修改。
+
+完整字段说明见[配置参考](config-reference.zh-CN.md)。

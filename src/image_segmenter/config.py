@@ -190,13 +190,19 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         raise ValueError("invalid data.image_size; expected a positive multiple of 16")
     if cfg.data.image_size <= 0 or cfg.data.image_size % 16 != 0:
         raise ValueError("invalid data.image_size; expected a positive multiple of 16")
-    if not isinstance(cfg.model.num_classes, int) or isinstance(cfg.model.num_classes, bool) or cfg.model.num_classes != 2:
+    if (
+        not isinstance(cfg.model.num_classes, int)
+        or isinstance(cfg.model.num_classes, bool)
+        or cfg.model.num_classes != 2
+    ):
         raise ValueError("invalid model.num_classes; expected 2")
     if not isinstance(cfg.data.label_map, dict) or set(cfg.data.label_map.values()) != {0, 1}:
         raise ValueError("invalid data.label_map; mapped classes must be exactly 0 and 1")
     if any(not isinstance(key, int) or not isinstance(value, int) for key, value in cfg.data.label_map.items()):
         raise ValueError("invalid data.label_map; keys and values must be integers")
-    if not isinstance(cfg.data.ignore_values, list) or any(not isinstance(value, int) for value in cfg.data.ignore_values):
+    if not isinstance(cfg.data.ignore_values, list) or any(
+        not isinstance(value, int) for value in cfg.data.ignore_values
+    ):
         raise ValueError("data.ignore_values must be a list of integers")
     if len(set(cfg.data.ignore_values)) != len(cfg.data.ignore_values):
         raise ValueError("data.ignore_values must be unique")

@@ -73,7 +73,9 @@ class Predictor:
             raise FileNotFoundError(f"input directory not found: {source}")
         if source == destination:
             raise ValueError("prediction output directory would overwrite input images")
-        images = sorted(path for path in source.rglob("*") if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES)
+        images = sorted(
+            path for path in source.rglob("*") if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+        )
         if not images:
             raise ValueError(f"no supported images found in directory: {source}")
         results: list[dict[str, Path]] = []

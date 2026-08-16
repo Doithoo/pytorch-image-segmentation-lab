@@ -8,6 +8,7 @@ import math
 import os
 import random
 import warnings
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -80,7 +81,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _write_dict_rows(path: Path, fieldnames: tuple[str, ...], rows: list[dict[str, object]]) -> None:
+def _write_dict_rows(path: Path, fieldnames: tuple[str, ...], rows: Sequence[Mapping[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w", newline="") as handle:
@@ -158,7 +159,9 @@ def _validate_source(
         raise ManifestError("found no valid paired samples")
     if empty_foreground_count:
         noun = "sample has" if empty_foreground_count == 1 else "samples have"
-        warnings.warn(f"{empty_foreground_count} {noun} no foreground; retained as negative data", UserWarning, stacklevel=3)
+        warnings.warn(
+            f"{empty_foreground_count} {noun} no foreground; retained as negative data", UserWarning, stacklevel=3
+        )
     return valid_samples
 
 
@@ -261,9 +264,12 @@ def prepare_paired_manifests(
         "valid": samples[first:second],
         "test": samples[second:],
     }
+    empty_splits = [split for split, split_values in split_samples.items() if not split_values]
+    if empty_splits:
+        names = ", ".join(empty_splits)
+        raise ManifestError(f"split ratios produce an empty split ({names}); add samples or adjust data.split_ratios")
     annotated = {
-        split: [(sample, "", "provided") for sample in split_values]
-        for split, split_values in split_samples.items()
+        split: [(sample, "", "provided") for sample in split_values] for split, split_values in split_samples.items()
     }
     return _write_manifests(output, source, annotated, "paired-directory", seed, label_map, ignore_values)
 
@@ -322,11 +328,7 @@ def prepare_oxford_manifests(
     for breed in sorted(groups):
         breed_ids = sorted(groups[breed])
         random.Random(f"{seed}:{breed}").shuffle(breed_ids)
-        train_count = (
-            1
-            if len(breed_ids) == 1
-            else min(len(breed_ids) - 1, max(1, math.floor(len(breed_ids) * 0.8)))
-        )
+        train_count = 1 if len(breed_ids) == 1 else min(len(breed_ids) - 1, max(1, math.floor(len(breed_ids) * 0.8)))
         train_items.extend((by_id[sample_id], breed, "trainval") for sample_id in breed_ids[:train_count])
         valid_items.extend((by_id[sample_id], breed, "trainval") for sample_id in breed_ids[train_count:])
     test_items = [(by_id[sample_id], _breed_name(sample_id), "test") for sample_id in test_ids]

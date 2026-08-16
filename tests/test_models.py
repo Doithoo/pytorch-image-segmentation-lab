@@ -28,9 +28,7 @@ def test_unet_explains_incompatible_input_size() -> None:
 
 
 def test_deeplab_returns_direct_same_resolution_logits_offline() -> None:
-    model = create_model(
-        "deeplabv3_resnet50", in_channels=3, num_classes=2, base_channels=16, pretrained=False
-    ).eval()
+    model = create_model("deeplabv3_resnet50", in_channels=3, num_classes=2, base_channels=16, pretrained=False).eval()
     with torch.no_grad():
         output = model(torch.randn(1, 3, 32, 32))
     assert output.shape == (1, 2, 32, 32)

@@ -2,41 +2,45 @@
 
 [简体中文](CONTRIBUTING.zh-CN.md)
 
-Contributions should preserve the project's beginner-readable behavior,
-reproducibility contract, and English/Simplified Chinese parity.
+Ask whether a change helps a learner run, observe, or understand the project
+while preserving inspectable experiments. Technically correct but opaque
+features may need a smaller first version.
 
-## Before Coding
+## Before coding
 
-Open an issue for behavior or architecture changes. State the learner problem,
-expected behavior, alternatives, data/network implications, and how it will be
-tested. Never add Oxford data, downloaded model weights, or secrets to Git.
+Open an issue for behavior or architecture changes. Describe the learner
+problem, expected result, alternatives, data/network impact, and verification.
+Do not commit Oxford data, downloaded model weights, secrets, or full local run
+directories.
 
-## Local Workflow
+## Local checks
 
 ```bash
 uv sync --extra dev
 uv run ruff check .
+uv run ruff format --check .
+uv run mypy
 uv run pytest
 uv build
 uv run twine check dist/*
 ```
 
-Write a failing test before production behavior. Keep commits focused and use
-English Conventional Commits. Do not bypass hooks. Tests and CI must remain
-offline: use synthetic fixtures and `weights=None`.
+Write a failing test before production behavior. Keep tests offline with
+synthetic fixtures and `weights=None`; do not bypass hooks.
 
 ## Documentation
 
-Update the English and `.zh-CN.md` counterpart together with identical heading
-levels and shell command blocks. Explain new fields in the config reference and
-link learning examples to their production module. Never publish an unmeasured
-metric or omit the conditions required to interpret it.
+English and Simplified Chinese core documents both need discoverable entries and
+the same behavior. They may organize headings, examples, and troubleshooting in
+ways natural to each language. Commands, configuration names, labels, and metric
+definitions must agree. Publish measured values only with conditions and limits.
 
-## Pull Requests
+Store model binaries in a release/model artifact service. Keep configs, hashes,
+metrics, and a few representative images in Git.
 
-Describe what changed, why it helps learners, tests run, artifact or UI changes,
-and known limitations. Keep unrelated refactors separate. Maintainers may ask
-for smaller examples or clearer naming even when code is technically correct.
+## Pull requests
 
-By contributing, you agree that your work is released under the repository's
-[MIT License](LICENSE).
+Explain the learner problem, change, checks run, artifact differences, and known
+limits. Separate unrelated refactors and use English Conventional Commits.
+
+Contributions are released under the [MIT License](LICENSE).

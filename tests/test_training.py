@@ -107,3 +107,13 @@ def test_resume_rejects_changed_training_semantics(paired_data: Path, tmp_path: 
 
     with pytest.raises(ValueError, match="training configuration"):
         train_from_config(cfg, resume=run_dir / "last.pt")
+
+
+def test_resume_rejects_extending_a_cosine_schedule(paired_data: Path, tmp_path: Path) -> None:
+    cfg = _config(paired_data, tmp_path)
+    cfg.train.scheduler = "cosine"
+    run_dir = train_from_config(cfg)
+    cfg.train.epochs = 2
+
+    with pytest.raises(ValueError, match="cosine schedule"):
+        train_from_config(cfg, resume=run_dir / "last.pt")

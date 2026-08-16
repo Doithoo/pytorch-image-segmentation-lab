@@ -33,9 +33,7 @@ def test_evaluate_checkpoint_writes_numeric_and_visual_evidence(trained_run: dic
     assert Image.open(sample_files[0]).size == (32 * 4, 32 + 24)
 
 
-def test_evaluation_records_relative_checkpoint_path(
-    trained_run: dict[str, Path], monkeypatch
-) -> None:
+def test_evaluation_records_relative_checkpoint_path(trained_run: dict[str, Path], monkeypatch) -> None:
     checkpoint = trained_run["checkpoint"]
     working_directory = checkpoint.parents[2]
     monkeypatch.chdir(working_directory)

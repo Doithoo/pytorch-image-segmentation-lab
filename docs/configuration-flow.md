@@ -2,49 +2,26 @@
 
 [简体中文](configuration-flow.zh-CN.md) | [Back to README](../README.md)
 
-Configuration is explicit and strict. It is resolved once before data loading
-or model construction.
-
-## Precedence
+One resolved `ExperimentConfig` is created and validated before data or models:
 
 ```text
-code defaults < YAML file < --set override < dedicated CLI option
+code defaults < YAML < --set < dedicated flags
 ```
 
-A later layer replaces an earlier value. Dedicated flags such as `--device`
-are best for one-off runtime choices; YAML should describe a reproducible
-experiment; `--set` is useful for a controlled variation.
-
-## Inspect Before Running
-
 ```bash
-uv run segment show-config --config configs/learning_minimal.yaml
 uv run segment show-config --config configs/learning_minimal.yaml \
-  --set train.epochs 3 --set model.base_channels 8
+  --set train.epochs 5 --device cpu
 ```
 
-The first command prints every effective field. The second demonstrates typed
-dotted overrides. Unknown paths, invalid booleans, non-divisible image sizes,
-and incompatible label mappings fail immediately.
+`--set` parses JSON values to preserve numbers, booleans, null, lists, and maps.
+`show-config` prints exactly what the command will use; training saves that
+resolved result as `config.yaml`.
 
-## Command-Specific Overrides
+Validation rejects unknown keys, wrong types, invalid labels/loss/model/device,
+and other inconsistent settings before expensive work. Sample-count-dependent
+empty splits are detected by `prepare-data` after scanning.
 
-```bash
-uv run segment train --config configs/learning_minimal.yaml \
-  --set train.epochs 3 --device cpu --output-dir artifacts
-```
-
-Here `--device cpu` and `--output-dir artifacts` have the highest precedence.
-The saved `config.yaml` is the resolved result, not merely the input YAML.
-
-## Checkpoint Restoration
-
-Resume validates model construction, raw label mapping, ignore index,
-preprocessing, loss and training semantics, and train/validation manifest
-hashes before loading optimizer state. Data paths and total epochs may change;
-other training behavior may not. Evaluation and prediction reconstruct the
-model and preprocessing from checkpoint metadata; they do not depend on
-today's config defaults.
-
-See [Config Reference](config-reference.md) for field meanings and
-[Experiments](experiments.md) for safe comparisons.
+Checkpoint evaluation and prediction restore model/preprocessing from the saved
+config. Training resume additionally compares model, data, loss, batch, labels,
+and manifests. A cosine checkpoint must keep its planned total epochs. See the
+[configuration reference](config-reference.md).

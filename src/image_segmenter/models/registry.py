@@ -25,9 +25,7 @@ def create_model(
     if name == "unet_small":
         if pretrained:
             raise ValueError("unet_small does not provide pretrained weights")
-        model = SmallUNet(in_channels=in_channels, num_classes=num_classes, base_channels=base_channels)
-        model.checkpoint_metadata = {"architecture": "unet_small", "pretrained_weights": None}
-        return model
+        return SmallUNet(in_channels=in_channels, num_classes=num_classes, base_channels=base_channels)
     if name == "deeplabv3_resnet50":
         if in_channels != 3:
             raise ValueError("deeplabv3_resnet50 requires three input channels")

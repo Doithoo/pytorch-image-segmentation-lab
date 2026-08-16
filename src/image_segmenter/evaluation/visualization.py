@@ -36,7 +36,9 @@ def colorize_mask(mask: np.ndarray | Image.Image, ignore_index: int = 255) -> Im
     return Image.fromarray(colored)
 
 
-def _blend_states(image: Image.Image, states: np.ndarray, colors: dict[int, tuple[int, int, int]], alpha: float) -> Image.Image:
+def _blend_states(
+    image: Image.Image, states: np.ndarray, colors: dict[int, tuple[int, int, int]], alpha: float
+) -> Image.Image:
     if not 0 <= alpha <= 1:
         raise ValueError("alpha must be between 0 and 1")
     original = np.asarray(image.convert("RGB"), dtype=np.float32)

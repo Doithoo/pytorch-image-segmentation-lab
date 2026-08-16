@@ -1,66 +1,45 @@
-# Using Your Data
+# Use Your Own Image/Mask Pairs
 
 [简体中文](using-your-data.zh-CN.md) | [Back to README](../README.md)
 
-Custom data uses the same manifest-backed Dataset as Oxford. The preparation
-command only assumes paired filenames and explicit mask semantics.
-
-## Arrange Pairs
+The generic path supports binary, single-channel, same-stem image/mask pairs.
+Validate a small bounded copy before a full run.
 
 ```text
 my-data/
-|-- images/
-|   |-- sample-001.jpg
-|   `-- sample-002.png
-`-- masks/
-    |-- sample-001.png
-    `-- sample-002.png
+|-- images/sample-001.jpg
+`-- masks/sample-001.png
 ```
 
-Image and mask stems must match exactly. Nested paths are allowed only when the
-relative stems still match. Masks must be single-channel integer images, not
-colorized screenshots or alpha overlays.
+Print unique values from several raw masks. Put every possible raw value in
+`data.label_map` or `data.ignore_values`; unknown values fail instead of silently
+becoming background. Keep `loss.ignore_index` different from classes 0 and 1.
 
-## Define Label Semantics
-
-Inspect unique pixel values before editing configuration. `data.label_map`
-maps raw values to contiguous class indices; `data.ignore_values` lists pixels
-that contribute to neither loss nor metrics. Every raw value must be accounted
-for, otherwise loading fails instead of silently treating it as background.
-
-This first release is binary: model class 0 is background and class 1 is
-foreground. Multiclass, instance IDs, polygons, and soft masks require code
-changes and are not accepted by the default pipeline.
-
-## Prepare Manifests
+Create a separate config and manifest directory, then prepare paired data:
 
 ```bash
-uv run segment prepare-data --config configs/learning_minimal.yaml \
-  --data-dir my-data --manifest-dir my-manifests \
+uv run segment prepare-data --config configs/my_data.yaml \
+  --data-dir my-data --manifest-dir data/my-manifests \
   --source-format paired
-uv run python scripts/preview_dataset.py my-manifests/train.csv \
-  --output artifacts/my-data-preview.png --limit 4
 ```
 
-Generic paired data uses deterministic seeded train/validation/test ratios from
-the config. Preparation validates missing pairs, duplicate content, unreadable
-files, image/mask size mismatches, and unexpected mask values. Read
-`source.yaml` and `summary.txt` before training.
+Preparation rejects missing pairs, size/value problems, duplicates, and ratios
+that produce empty train/valid/test splits. Inspect `summary.txt` and CSV rows.
 
-## Adapt The Preview
+Run one CPU batch before training:
 
-The bundled preview uses Oxford's `1/2/3` raw palette. For a different raw
-encoding, first use the generated manifests and Dataset tests, then adapt the
-small mapping constants in `scripts/preview_dataset.py`. Never use the preview's
-rendered output as a training mask.
+```bash
+uv run segment train --config configs/my_data.yaml --dry-run --device cpu
+```
 
-## Train Safely
+Check image, target, logits shapes; mapped values; and valid-pixel ratio. The
+built-in transform stretches pairs to a square. Aspect-ratio-sensitive domains
+may require a tested paired padding/cropping transform.
 
-Copy `learning_minimal.yaml`, set `data.manifest_dir`, label mapping, and ignore
-values, then run `show-config` and `--dry-run`. Start with a tiny subset. Verify
-that image and target shapes align and mapped values are only `0`, `1`, and the
-ignore index before increasing epochs.
+Random image splitting is unsafe for related patients, video frames, bursts, or
+shared sources. Group those entities before assigning splits.
 
-Keep a final test split isolated from tuning. If your source has groups such as
-patients, videos, or repeated subjects, write a group-aware splitter; random
-image splits can leak nearly identical content and inflate results.
+Run a short named baseline, inspect validation overlays, and diagnose labels,
+membership, shape distortion, and foreground size before increasing model
+complexity. See [troubleshooting](troubleshooting.md) and
+[experiments](experiments.md).

@@ -25,6 +25,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     assert red_right > red_left
     torch_equal = bool((mask_tensor[:, 16:] == 1).all())
     assert torch_equal
+    print("foreground before=left after=right")
     print(f"image={tuple(image_tensor.shape)} mask={tuple(mask_tensor.shape)} aligned={torch_equal}")
     return 0
 

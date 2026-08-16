@@ -66,7 +66,11 @@ def _prepare_data(args: argparse.Namespace) -> int:
     source_format = args.source_format
     if source_format == "auto":
         annotations = Path(data_dir) / "annotations"
-        source_format = "oxford-pet" if (annotations / "trainval.txt").is_file() and (annotations / "test.txt").is_file() else "paired"
+        source_format = (
+            "oxford-pet"
+            if (annotations / "trainval.txt").is_file() and (annotations / "test.txt").is_file()
+            else "paired"
+        )
     if source_format == "oxford-pet":
         paths = prepare_oxford_manifests(
             data_dir,

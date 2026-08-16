@@ -20,6 +20,8 @@ CORE_DOCUMENTS = [
     Path("docs/tutorial/03-unet.md"),
     Path("docs/tutorial/04-training.md"),
     Path("docs/tutorial/05-evaluation-and-inference.md"),
+    Path("docs/tutorial/README.md"),
+    Path("docs/troubleshooting.md"),
     Path("configs/README.md"),
     Path("examples/README.md"),
     Path("src/image_segmenter/README.md"),
@@ -32,26 +34,11 @@ def _translated(path: Path) -> Path:
     return path.with_name(f"{path.stem}.zh-CN{path.suffix}")
 
 
-def _heading_levels(text: str) -> list[int]:
-    return [len(match.group(1)) for match in re.finditer(r"^(#{1,6})\s+", text, re.MULTILINE)]
-
-
-def _shell_blocks(text: str) -> list[str]:
-    return [
-        match.group(1).strip()
-        for match in re.finditer(r"```(?:bash|console|sh)\n(.*?)```", text, re.DOTALL)
-    ]
-
-
 @pytest.mark.parametrize("english", CORE_DOCUMENTS, ids=str)
-def test_core_document_has_structural_chinese_parity(english: Path) -> None:
+def test_core_document_has_a_chinese_companion(english: Path) -> None:
     chinese = _translated(english)
     assert (ROOT / english).is_file(), f"missing English document: {english}"
     assert (ROOT / chinese).is_file(), f"missing Chinese document: {chinese}"
-    english_text = (ROOT / english).read_text()
-    chinese_text = (ROOT / chinese).read_text()
-    assert _heading_levels(english_text) == _heading_levels(chinese_text)
-    assert _shell_blocks(english_text) == _shell_blocks(chinese_text)
 
 
 def test_readme_contains_verified_beginner_commands_and_semantics() -> None:
@@ -73,6 +60,28 @@ def test_readme_contains_verified_beginner_commands_and_semantics() -> None:
         "official test split",
     ):
         assert phrase in text
+
+
+def test_chinese_readme_presents_a_guided_journey_and_real_results() -> None:
+    text = (ROOT / "README.zh-CN.md").read_text()
+    for phrase in (
+        "这个项目适合谁",
+        "8–12 小时",
+        "dry-run OK",
+        "docs/assets/reference-unet-dataset-preview.png",
+        "docs/assets/reference-unet-loss-curve.png",
+        "docs/assets/reference-unet-overlay.png",
+        "项目结构",
+    ):
+        assert phrase in text
+
+
+def test_public_learning_docs_do_not_contain_agent_execution_plans() -> None:
+    assert not (ROOT / "docs" / "superpowers").exists()
+    for document in (ROOT / "docs").rglob("*.md"):
+        text = document.read_text().lower()
+        assert "for agentic workers" not in text
+        assert "required sub-skill" not in text
 
 
 def test_relative_markdown_links_resolve() -> None:

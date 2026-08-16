@@ -1,37 +1,28 @@
-# Utility Scripts
+# Data and Result Utilities
 
-These scripts keep dataset setup and artifact rendering visible to learners.
-Run them from the repository root with the project environment active.
+[简体中文](README.zh-CN.md) | [Back to README](../README.md)
 
-## Download Oxford-IIIT Pet
+Run all scripts from the repository root through `uv run`.
 
 ```bash
 uv run python scripts/download_data.py --data-dir data/raw
+uv run python scripts/download_data.py --data-dir data/raw --verify-only
 ```
 
-Downloads are written atomically to `data/downloads`. The installer verifies
-both SHA-256 checksums before creating `data/raw/images`, `data/raw/masks`, and
-`data/raw/annotations`. Use `--verify-only` to check cached archives without
-network access or installation. Use `--force` only when you intend to download
-fresh copies.
-
-## Preview A Manifest
+The downloader uses partial files, fixed SHA-256 values, and safe extraction.
+Use `--force` only when replacing the cache deliberately.
 
 ```bash
 uv run python scripts/preview_dataset.py data/manifests/train.csv \
   --output artifacts/dataset_preview.png --limit 4
 ```
 
-Each row shows the source image, raw Oxford trimap, mapped training mask, and
-foreground overlay. The script reads source files but never changes them.
-
-## Plot Training Metrics
+Open the preview and inspect alignment; successful execution alone does not
+prove labels are correct.
 
 ```bash
-uv run python scripts/plot_metrics.py artifacts/my-run/metrics.csv \
-  --output artifacts/my-run/loss_curve.png
+uv run python scripts/plot_metrics.py artifacts/first-unet/metrics.csv \
+  --output artifacts/first-unet/loss_curve.png
 ```
 
-The plot contains the train and validation loss recorded after each epoch.
-
-See [the Simplified Chinese guide](README.zh-CN.md) for the Chinese version.
+Interpret loss curves with validation pet IoU and overlays, not alone.

@@ -1,52 +1,52 @@
-# Tutorial 05: Evaluation And Inference
+# Tutorial 05: Do Not Let One Score Inspect the Images for You
 
-[简体中文](05-evaluation-and-inference.zh-CN.md) | [Tutorial index](../learning-path.md)
+[简体中文](05-evaluation-and-inference.zh-CN.md) | [Tutorial index](README.md)
 
-Evaluation measures a labeled split. Inference produces masks for unlabeled
-images. Both restore model and preprocessing from the checkpoint.
-
-## Evaluate The Selected Checkpoint
+Evaluation measures labeled data. Inference produces masks for unlabeled
+images. Both restore model and preprocessing from a checkpoint, but their
+outputs answer different questions.
 
 ```bash
-uv run segment evaluate --checkpoint artifacts/learning-unet/best.pt \
+uv run segment evaluate --checkpoint artifacts/first-unet/best.pt \
   --split test --plot --device cpu
 ```
 
-Use validation while developing and the official test split only for the final
-selected run. The evaluator writes global metrics, per-class rows, per-image
-rows, representative comparisons, worst cases, and an optional loss curve.
+Evaluation writes summary JSON, per-class and per-image CSV, representative
+overlays, worst cases, and an optional loss plot.
 
-## Read Metrics Correctly
+For pet foreground, IoU is `TP/(TP+FP+FN)` and Dice is
+`2TP/(2TP+FP+FN)`. Pixel accuracy can be dominated by easy background pixels.
+Global IoU pools all valid pixels; mean per-image IoU gives each image similar
+weight. Report which statistic you use.
 
-Pet IoU is intersection divided by union. Pet Dice is twice intersection divided
-by predicted plus target pet pixels. Mean IoU includes background; pixel
-accuracy can be dominated by background. Validation pet IoU selects checkpoints.
+When target and prediction both contain no foreground, per-image pet IoU is
+undefined. The evaluator counts and excludes that value from the mean instead
+of silently assigning a perfect score. An empty target with a false positive
+still receives IoU zero.
 
-Dataset-level IoU comes from one accumulated confusion matrix. Mean per-image
-IoU gives each eligible image equal weight. Empty target and empty prediction
-make per-image pet IoU undefined, so the sample is counted and excluded.
+![Target, prediction, and pixel errors](../assets/reference-unet-overlay.png)
 
-## Diagnose Visually
+Read an overlay by asking whether errors affect boundaries or the whole object,
+whether thin structures disappear, whether background texture causes false
+positives, and whether the source annotation itself is suspicious. Worst cases
+can reveal data problems as well as model problems.
 
-Comparison grids show image, target, prediction, and errors. Find false
-positives, false negatives, true positives, and ignored pixels. Check whether
-errors cluster around fur, thin limbs, unusual poses, small pets, or confusing
-backgrounds. A curve tells when behavior changed; an overlay tells how.
-
-## Predict New Images
+Use validation to select checkpoints and settings. Evaluate the official test
+split only after choosing the final setting; repeatedly selecting by test score
+turns test into validation.
 
 ```bash
-uv run segment predict --checkpoint artifacts/learning-unet/best.pt \
+uv run segment predict --checkpoint artifacts/first-unet/best.pt \
   --image data/raw/images/Abyssinian_1.jpg \
   --output artifacts/predictions/Abyssinian_1.png --device cpu
 ```
 
-The raw output PNG contains class indices 0 and 1. `.color.png` is for human
-inspection; `.overlay.png` blends pet pixels onto the original. Never feed a
-color or overlay output back as a target mask.
+Prediction writes a machine-readable 0/1 mask plus color and overlay images.
+Predictor restores preprocessing and resizes class indices to source dimensions
+with nearest-neighbor interpolation. Never feed display outputs back as target
+masks.
 
-## Continue Learning
-
-Write one hypothesis using [Experiments](../experiments.md), or adapt a binary
-paired dataset with [Using Your Data](../using-your-data.md). Keep the official
-test split isolated and report limitations with every measured result.
+A useful report identifies the split and checkpoint, global and per-image
+metrics, sample/empty counts, one success and failure image, environment, and a
+known limitation. Continue to [experiments](../experiments.md) or
+[custom data](../using-your-data.md).

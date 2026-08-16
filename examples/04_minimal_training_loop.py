@@ -21,15 +21,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     criterion = SegmentationLoss(cross_entropy_weight=1.0, dice_weight=1.0, ignore_index=255)
     images = torch.rand(2, 3, 32, 32)
     targets = torch.randint(0, 2, (2, 32, 32))
+    first_parameter = next(model.parameters())
+    parameter_before = first_parameter.detach().clone()
     logits = model(images)
     loss, components = criterion(logits, targets)
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
+    parameter_update = float((first_parameter.detach() - parameter_before).abs().sum().item())
     print(
         f"logits={tuple(logits.shape)} loss={loss.item():.4f} "
         f"ce={components['cross_entropy'].item():.4f} dice={components['dice'].item():.4f}"
     )
+    print(f"parameter_update_l1={parameter_update:.6f}")
     return 0
 
 

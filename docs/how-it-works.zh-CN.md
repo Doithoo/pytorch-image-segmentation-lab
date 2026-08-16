@@ -1,46 +1,65 @@
-# 系统如何工作
+# 一张样本怎样走完整个系统
 
 [English](how-it-works.md) | [返回 README](../README.zh-CN.md)
 
-语义分割为每个像素分配一个类别。本项目明确展示完整路径，使学习者可以检查每一种
-表示。
+本文按数据流解释“做了什么”和“为什么这样做”。第一次操作请跟随
+[学习路线](learning-path.zh-CN.md)，需要理解设计原因时再回来查阅。
 
-## 数据流
+## 总览
 
 ```text
-official archives -> images/masks -> manifests -> paired transform
--> image [B,3,H,W] + target [B,H,W] -> U-Net logits [B,2,H,W]
--> loss/optimizer or argmax -> metrics + mask artifacts
+官方归档/配对目录
+  -> 校验并写 manifest
+  -> Dataset 读取 image + raw mask
+  -> 成对 resize/flip + 标签映射
+  -> image [B,3,H,W] + target [B,H,W]
+  -> U-Net logits [B,2,H,W]
+  -> loss/backward/update 或 argmax
+  -> checkpoint、指标表、掩码和叠加图
 ```
 
-清单把数据准备与训练解耦。路径可以是相对路径，因此准备后的数据集可以整体移动。
-图像和掩码的几何始终对齐；颜色归一化只应用于图像。
+## manifest 把“数据是谁”固定下来
 
-## 标签流
+训练代码不遍历目录，而是读取 CSV。固定成员和相对路径让同一 manifest 可以在不同
+模型实验间复用，也可以随数据目录一起移动。SHA-256 用于确认两次运行是否使用相同
+成员，不表示数据本身一定没有语义问题。
 
-Oxford 原始值为 `1=宠物`、`2=背景`、`3=未分类`。Dataset 将其映射为 `1`、`0`
-和 `255`。交叉熵把 255 作为 `ignore_index`，Dice 和指标也显式过滤相同像素。
+Oxford 官方 test 不重新随机切分；trainval 按品种切成 train/valid。通用数据按配置
+比例随机切分，并拒绝空 split。
 
-模型永远不预测 255。两个通道分别表示背景和宠物。原始 trimap、映射目标、logits、
-预测类别掩码、彩色渲染和透明叠加图是用途不同的对象。
+## Dataset 统一标签语义
 
-## 学习流
+原始 Oxford `1/2/3` 映射为 `1/0/255`。模型只预测 0 和 1，loss 与指标都跳过 255。
+映射发生在 Dataset，而不是散落在 loss、评测和绘图中，因此所有消费者看到同一种目标。
 
-训练时，U-Net 输出 logits。交叉熵鼓励每个有效像素的正确类别，前景 soft Dice
-强调重叠，降低大面积背景的影响。组合损失算完后，梯度才更新权重。
+图片和掩码共享随机几何变换。颜色归一化只应用于图片；mask 保持 int64 类别 ID。
 
-Trainer 每轮测量验证集宠物 IoU。`last.pt` 表示最近训练状态，`best.pt` 表示验证
-宠物 IoU 最高的状态，两者可能不同。
+## U-Net 只承诺输出 logits
 
-## 评估流
+模型不知道 manifest、原始标签值或 checkpoint 目录。它把 `[B,3,H,W]` 转成
+`[B,2,H,W]`。手写 U-Net 与 DeepLab adapter 遵守同一输入/输出形状，Trainer 不需要
+按模型名称写分支。
 
-官方测试集在最终评估前保持不动。预测和目标共同更新一个数据集级混淆矩阵。逐图
-指标也会写出以便诊断，但它们的算术均值与全局 IoU 不是同一个统计量。
+## loss 提供梯度，指标提供解释
 
-当某图的目标和预测均无前景时，逐图宠物 IoU 和 Dice 没有定义。评估器会计数并
-从逐图均值排除。可视化叠加图帮助解释数值分数来自哪里。
+交叉熵逐像素学习类别；soft Dice 强调前景重叠。两者可以组合，但训练 loss 不是最终
+报告。验证 pet IoU 选择 best checkpoint，因为 pixel accuracy 容易被背景占比主导。
 
-## 复现流
+`SegmentationMetrics` 累积混淆矩阵，不保存整个数据集预测。全局 IoU 从总计数计算；
+逐图指标用于发现某类图片是否特别差。两者不能互相替换。
 
-最终配置、来源元数据、清单哈希、运行元数据、每轮指标和 checkpoint 状态一起保存。
-推理从 checkpoint 恢复输入尺寸和归一化，避免 CLI 默认值变化暗中影响旧模型。
+## checkpoint 让推理不依赖记忆
+
+checkpoint 保存模型、预处理、标签、配置和版本。Predictor 不要求用户再次输入网络尺寸
+或归一化参数，避免训练与推理漂移。
+
+训练恢复还需要 optimizer、scheduler、epoch、最佳分数和随机状态。恢复前核对 manifest
+与训练语义，防止把不同实验拼接到同一个目录。
+
+## 数值产物与视觉产物各司其职
+
+JSON/CSV 适合比较和自动处理；原始 0/1 PNG 适合其他程序；color/overlay 适合人看。
+项目分别保存它们，避免展示颜色污染类别数据。
+
+评测同时保留代表样本与最差案例。汇总指标说明“总体有多好”，叠加图说明“错在哪里”。
+可信报告需要两者。

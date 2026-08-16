@@ -69,7 +69,9 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> Non
         writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
-            writer.writerow({key: "" if isinstance(value, float) and math.isnan(value) else value for key, value in row.items()})
+            writer.writerow(
+                {key: "" if isinstance(value, float) and math.isnan(value) else value for key, value in row.items()}
+            )
 
 
 def _render_samples(
@@ -177,7 +179,9 @@ def evaluate_checkpoint(
             logits = model(images.to(runtime_device))
             predictions = logits.argmax(dim=1).cpu()
             aggregate.update(predictions, targets)
-            for sample_id, scores in zip(sample_ids, per_image_scores(predictions, targets, config.loss.ignore_index), strict=True):
+            for sample_id, scores in zip(
+                sample_ids, per_image_scores(predictions, targets, config.loss.ignore_index), strict=True
+            ):
                 per_image_rows.append({"sample_id": sample_id, **scores})
 
     global_metrics = aggregate.compute()

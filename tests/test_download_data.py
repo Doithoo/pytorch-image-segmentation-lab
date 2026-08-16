@@ -81,9 +81,7 @@ def test_install_rearranges_official_archive_layout(tmp_path: Path) -> None:
     assert not (output / "masks" / "._pet_01.png").exists()
 
 
-def test_verify_only_checks_cached_archives_without_installing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_verify_only_checks_cached_archives_without_installing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data_dir = tmp_path / "raw"
     downloads = tmp_path / "downloads"
     downloads.mkdir()

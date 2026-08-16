@@ -1,83 +1,111 @@
-# Learning Path
+# Image Segmentation Learning Path
 
 [简体中文](learning-path.zh-CN.md) | [Back to README](../README.md)
 
-Follow the stages in order. Each stage starts with a tiny runnable example and
-then moves to the production implementation. Do not begin a long training run
-until you can explain the shapes and artifacts from the earlier stages.
+This 8–12 hour path is for a learner who knows basic tensors, loss, and
+gradients but has not completed pixel-wise prediction. Run each small step,
+inspect its output, and explain it before starting a longer run.
 
-## Stage 1: Pixels, Masks, And Logits
+## 0. Verify the environment
 
-Run `examples/01_mask_and_logits.py`. Confirm that an image batch has shape
-`[B, 3, H, W]`, logits have `[B, 2, H, W]`, and the target has `[B, H, W]`.
-Understand why `argmax(dim=1)` is for prediction, while cross-entropy consumes
-logits directly.
+```bash
+uv sync --extra dev
+uv run segment --version
+uv run segment show-config --config configs/learning_minimal.yaml
+```
+
+The resolved configuration should show 128 px inputs, bounded samples, two
+epochs, a small U-Net, and automatic device selection. Use
+`show-config` after overrides instead of reconstructing the final values from
+memory.
+
+## 1. Identify the tensors
 
 ```bash
 uv run python examples/01_mask_and_logits.py
-```
-
-Then read [Tutorial 00](tutorial/00-basics.md) and `data/dataset.py` in the
-[code tour](code-tour.md).
-
-## Stage 2: Paired Data
-
-Run examples 02 and 03. A geometric transform must make the same random choice
-for image and mask. Images use bilinear interpolation; masks use nearest
-neighbor so class IDs cannot become fractional values.
-
-```bash
-uv run python examples/02_paired_transform.py
 uv run python examples/03_dataloader_batch.py
 ```
 
-Download Oxford, prepare manifests, and inspect a preview before training. Be
-able to explain the raw `1/2/3` values and the mapped `1/0/255` values.
+Explain image `[B,3,H,W]`, target `[B,H,W]`, logits `[B,2,H,W]`, and prediction
+`[B,H,W]`. Cross-entropy consumes logits and integer targets; `argmax(dim=1)` is
+for decisions, not training. Read [tutorial 00](tutorial/00-basics.md) if that
+distinction is still unclear.
 
-## Stage 3: One Optimization Step
+## 2. Inspect masks before training
 
-Run example 04 and trace forward, loss, zero-grad, backward, and optimizer step.
-Then run the real dry-run command. It exercises the actual Dataset, U-Net,
-combined loss, and optimizer without creating a normal experiment directory.
+```bash
+uv run python scripts/download_data.py --data-dir data/raw
+uv run segment prepare-data --config configs/learning_minimal.yaml \
+  --data-dir data/raw --manifest-dir data/manifests \
+  --source-format oxford-pet
+uv run python scripts/preview_dataset.py data/manifests/train.csv \
+  --output artifacts/dataset_preview.png --limit 4
+uv run python examples/02_paired_transform.py
+```
+
+Open the preview. Check source image/mask pairing, `1/2/3 -> 1/0/255` mapping,
+ignored borders, and geometric alignment. Image resize is bilinear; mask resize
+is nearest-neighbor. Read [tutorial 02](tutorial/02-data-and-masks.md).
+
+## 3. Follow one optimization step
 
 ```bash
 uv run python examples/04_minimal_training_loop.py
 uv run segment train --config configs/learning_minimal.yaml --dry-run
 ```
 
-Read [Tutorial 03](tutorial/03-unet.md) and
-[Tutorial 04](tutorial/04-training.md).
+Trace zero-grad, forward, loss, backward, and optimizer step. Then read
+`models/unet.py` from the encoder through skip connections to the two-channel
+head. `dry-run OK` proves the production pipeline can update one batch; it does
+not create a normal run or measure quality.
 
-## Stage 4: A Small Experiment
+Use [tutorial 03](tutorial/03-unet.md) for the model and
+[tutorial 04](tutorial/04-training.md) for the loop.
 
-Train the CPU-first configuration. Compare training and validation loss, but
-use validation pet IoU to decide which checkpoint generalizes best. Never tune
-with the official test split.
+## 4. Complete a small run
 
 ```bash
-uv run segment train --config configs/learning_minimal.yaml
+uv run segment train --config configs/learning_minimal.yaml \
+  --set run_name first-unet
 ```
 
-Record a question before changing a variable. Use
-[Experiments](experiments.md) to compare controlled runs.
+Inspect `config.yaml`, `metrics.csv`, `best.pt`, `last.pt`, and `run.yaml` in
+that order. Two epochs are a workflow check, not a competitive result. Explain
+why the checkpoint with the highest validation pet IoU may differ from the last
+epoch.
 
-## Stage 5: Evaluation And Inference
-
-Run example 05, evaluate the best checkpoint, and inspect both numeric tables
-and overlays. Distinguish global confusion metrics from averages of per-image
-metrics. Look at false positives and false negatives, not only one score.
+## 5. Return from metrics to images
 
 ```bash
+uv run segment evaluate --checkpoint artifacts/first-unet/best.pt \
+  --split test --plot --device cpu
 uv run python examples/05_checkpoint_overlay.py \
-  --checkpoint artifacts/learning-unet/best.pt \
+  --checkpoint artifacts/first-unet/best.pt \
   --image data/raw/images/Abyssinian_1.jpg --device cpu
 ```
 
-Finish with [Tutorial 05](tutorial/05-evaluation-and-inference.md), then adapt
-the project through [Using Your Data](using-your-data.md).
+Compare pet IoU, pet Dice, and pixel accuracy, then open sample overlays and
+worst cases. Identify false positives, false negatives, and ignored pixels.
+Distinguish dataset-global IoU from the mean of per-image IoU. Read
+[tutorial 05](tutorial/05-evaluation-and-inference.md).
 
-## Completion Checklist
+## 6. Run one controlled comparison
 
-You are ready to extend the project when you can explain label 3, paired
-transforms, logits versus masks, ignored pixels, pet IoU versus Dice,
-validation versus test use, checkpoint contents, and one visual failure case.
+```bash
+uv run segment train --config configs/learning_minimal.yaml \
+  --set run_name exp-ce
+uv run segment train --config configs/learning_minimal.yaml \
+  --set loss.cross_entropy_weight 0.5 \
+  --set loss.dice_weight 0.5 \
+  --set run_name exp-ce-dice
+```
+
+Keep manifests, seeds, model width, limits, and epochs fixed. Compare validation
+pet IoU, curves, and errors on the same images. A two-epoch, one-seed result
+describes these runs; it does not prove a universal Dice-loss rule. Continue
+with the [experiment guide](experiments.md) or adapt the
+[custom-data guide](using-your-data.md).
+
+You are ready to extend the project when you can explain mask interpolation,
+label 3 versus index 255, logits versus targets, best versus last checkpoint,
+validation versus test use, global versus per-image IoU, and one visual failure.
