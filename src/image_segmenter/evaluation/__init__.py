@@ -1,5 +1,5 @@
 """Evaluation public API."""
 
-from .metrics import SegmentationMetrics, score_or_none
+from .metrics import SegmentationMetrics, per_image_scores, score_or_none, serializable_metrics
 
-__all__ = ["SegmentationMetrics", "score_or_none"]
+__all__ = ["SegmentationMetrics", "per_image_scores", "score_or_none", "serializable_metrics"]

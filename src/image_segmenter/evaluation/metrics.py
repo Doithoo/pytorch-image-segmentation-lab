@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import torch
 
@@ -67,6 +68,66 @@ class SegmentationMetrics:
     def reset(self) -> None:
         """Clear all accumulated counts."""
         self.confusion.zero_()
+
+
+def per_image_scores(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    ignore_index: int,
+) -> list[dict[str, float | int]]:
+    """Calculate foreground metrics independently for each batch item."""
+    if prediction.ndim == 4:
+        prediction = prediction.argmax(dim=1)
+    if prediction.shape != target.shape or prediction.ndim != 3:
+        raise ValueError("prediction and target must have matching [B,H,W] shapes")
+    results: list[dict[str, float | int]] = []
+    for predicted_mask, target_mask in zip(prediction, target, strict=True):
+        valid = target_mask != ignore_index
+        valid_pixels = int(valid.sum().item())
+        ignored_pixels = int((~valid).sum().item())
+        if valid_pixels == 0:
+            results.append(
+                {
+                    "pet_iou": math.nan,
+                    "pet_dice": math.nan,
+                    "target_foreground_ratio": math.nan,
+                    "predicted_foreground_ratio": math.nan,
+                    "valid_pixels": 0,
+                    "ignored_pixels": ignored_pixels,
+                }
+            )
+            continue
+        predicted_pet = (predicted_mask == 1) & valid
+        target_pet = (target_mask == 1) & valid
+        intersection = int((predicted_pet & target_pet).sum().item())
+        union = int((predicted_pet | target_pet).sum().item())
+        predicted_count = int(predicted_pet.sum().item())
+        target_count = int(target_pet.sum().item())
+        denominator = predicted_count + target_count
+        results.append(
+            {
+                "pet_iou": intersection / union if union else math.nan,
+                "pet_dice": 2 * intersection / denominator if denominator else math.nan,
+                "target_foreground_ratio": target_count / valid_pixels,
+                "predicted_foreground_ratio": predicted_count / valid_pixels,
+                "valid_pixels": valid_pixels,
+                "ignored_pixels": ignored_pixels,
+            }
+        )
+    return results
+
+
+def serializable_metrics(value: Any) -> Any:
+    """Recursively replace non-standard NaN floats with JSON null values."""
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    if isinstance(value, dict):
+        return {key: serializable_metrics(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [serializable_metrics(item) for item in value]
+    if isinstance(value, tuple):
+        return [serializable_metrics(item) for item in value]
+    return value
 
 
 def score_or_none(value: float) -> float | None:
