@@ -186,8 +186,8 @@ def train_from_config(
         config.model.name,
         in_channels=config.model.in_channels,
         num_classes=config.model.num_classes,
-        base_channels=config.model.base_channels,
         pretrained=config.model.pretrained,
+        params=config.model.params,
     ).to(device)
     criterion = SegmentationLoss(
         config.loss.cross_entropy_weight,

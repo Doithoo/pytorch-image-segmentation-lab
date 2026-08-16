@@ -30,8 +30,8 @@ class Predictor:
             self.config.model.name,
             in_channels=self.config.model.in_channels,
             num_classes=self.config.model.num_classes,
-            base_channels=self.config.model.base_channels,
             pretrained=False,
+            params=self.config.model.params,
         )
         self.model.load_state_dict(saved["model_state"])
         self.model.to(self.device).eval()

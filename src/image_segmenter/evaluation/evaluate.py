@@ -151,8 +151,8 @@ def evaluate_checkpoint(
         config.model.name,
         in_channels=config.model.in_channels,
         num_classes=config.model.num_classes,
-        base_channels=config.model.base_channels,
         pretrained=False,
+        params=config.model.params,
     )
     model.load_state_dict(saved["model_state"])
     model.to(runtime_device).eval()
