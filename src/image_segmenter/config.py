@@ -20,7 +20,9 @@ class DataConfig:
     params: dict[str, Any] = field(default_factory=dict)
     data_dir: str = "data/raw"
     manifest_dir: str = "data/manifests"
-    image_size: int = 128
+    image_size: int | list[int] = 128
+    resize_mode: str = "stretch"
+    crop_size: int | list[int] | None = None
     normalize_mean: list[float] = field(default_factory=lambda: [0.485, 0.456, 0.406])
     normalize_std: list[float] = field(default_factory=lambda: [0.229, 0.224, 0.225])
     label_map: dict[int, int] = field(default_factory=lambda: {1: 1, 2: 0})
@@ -252,6 +254,18 @@ def _nonempty_string(key: str, value: object) -> None:
         raise ValueError(f"{key} must be a non-empty string")
 
 
+def _validate_size(key: str, value: object) -> tuple[int, int]:
+    if isinstance(value, int) and not isinstance(value, bool):
+        dimensions = (value, value)
+    elif isinstance(value, list) and len(value) == 2:
+        dimensions = value[0], value[1]
+    else:
+        raise ValueError(f"{key} must be a positive integer or [height, width]")
+    if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in dimensions):
+        raise ValueError(f"{key} dimensions must be positive integers")
+    return int(dimensions[0]), int(dimensions[1])
+
+
 def _validate_config(cfg: ExperimentConfig) -> None:
     if cfg.config_version != 2:
         raise ValueError("resolved config_version must be 2")
@@ -262,10 +276,17 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         raise ValueError("data.params must be a mapping with string keys")
     _nonempty_string("data.data_dir", cfg.data.data_dir)
     _nonempty_string("data.manifest_dir", cfg.data.manifest_dir)
-    if not isinstance(cfg.data.image_size, int) or isinstance(cfg.data.image_size, bool):
-        raise ValueError("invalid data.image_size; expected a positive multiple of 16")
-    if cfg.data.image_size <= 0 or cfg.data.image_size % 16 != 0:
-        raise ValueError("invalid data.image_size; expected a positive multiple of 16")
+    image_size = _validate_size("data.image_size", cfg.data.image_size)
+    if cfg.model.name == "unet_small" and any(value % 16 for value in image_size):
+        raise ValueError("invalid data.image_size; expected dimensions divisible by 16 for unet_small")
+    if cfg.data.resize_mode not in {"stretch", "letterbox"}:
+        raise ValueError("data.resize_mode must be stretch or letterbox")
+    if cfg.data.crop_size is not None:
+        crop_size = _validate_size("data.crop_size", cfg.data.crop_size)
+        if any(crop > output for crop, output in zip(crop_size, image_size, strict=True)):
+            raise ValueError("data.crop_size cannot exceed data.image_size")
+        if cfg.model.name == "unet_small" and any(value % 16 for value in crop_size):
+            raise ValueError("invalid data.crop_size; expected dimensions divisible by 16 for unet_small")
     if cfg.model.expected_num_classes is not None:
         _positive_int("model.expected_num_classes", cfg.model.expected_num_classes)
     if not isinstance(cfg.data.label_map, dict) or set(cfg.data.label_map.values()) != {0, 1}:

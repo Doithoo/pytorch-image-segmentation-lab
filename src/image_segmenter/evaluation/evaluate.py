@@ -160,7 +160,7 @@ def evaluate_checkpoint(
     manifest = Path(config.data.manifest_dir) / f"{split}.csv"
     dataset = SegmentationDataset(
         manifest,
-        build_transform(config.data, training=False),
+        build_transform(config.data, training=False, ignore_index=config.loss.ignore_index),
         config.data.label_map,
         config.data.ignore_values,
         config.loss.ignore_index,

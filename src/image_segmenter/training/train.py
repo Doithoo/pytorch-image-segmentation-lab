@@ -151,7 +151,7 @@ def train_from_config(
 
     train_dataset = SegmentationDataset(
         train_manifest,
-        build_transform(config.data, training=True),
+        build_transform(config.data, training=True, ignore_index=config.loss.ignore_index),
         config.data.label_map,
         config.data.ignore_values,
         config.loss.ignore_index,
@@ -159,7 +159,7 @@ def train_from_config(
     )
     valid_dataset = SegmentationDataset(
         valid_manifest,
-        build_transform(config.data, training=False),
+        build_transform(config.data, training=False, ignore_index=config.loss.ignore_index),
         config.data.label_map,
         config.data.ignore_values,
         config.loss.ignore_index,
