@@ -1,8 +1,8 @@
 """Data preparation and loading public API."""
 
 from .dataset import SegmentationDataset, map_mask
-from .manifest import ManifestError, ManifestRow, prepare_oxford_manifests, prepare_paired_manifests
 from .inspection import create_dataset_preview, inspect_prepared_data
+from .manifest import ManifestError, ManifestRow, prepare_oxford_manifests, prepare_paired_manifests
 from .masks import MaskDecoder
 from .metadata import PreparedDatasetMetadata, read_dataset_metadata, write_dataset_metadata
 from .registry import (

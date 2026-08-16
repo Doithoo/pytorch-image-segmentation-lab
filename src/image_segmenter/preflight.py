@@ -42,9 +42,7 @@ def validate_batch_contract(
     if not isinstance(targets, torch.Tensor) or targets.ndim != 3 or targets.dtype != torch.long:
         raise ValueError("targets must be long [B,H,W] tensors")
     if targets.shape[0] != images.shape[0] or targets.shape[-2:] != images.shape[-2:]:
-        raise ValueError(
-            f"target shape {tuple(targets.shape)} does not match image batch {tuple(images.shape)}"
-        )
+        raise ValueError(f"target shape {tuple(targets.shape)} does not match image batch {tuple(images.shape)}")
     target_values = tuple(sorted(int(value) for value in targets.unique().tolist()))
     class_names = tuple(item.name for item in label_schema.classes)
     allowed = set(range(label_schema.num_classes)) | {label_schema.ignore_index}

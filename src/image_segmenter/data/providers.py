@@ -78,8 +78,7 @@ def prepare_paired_provider(**kwargs: Any) -> dict[str, Path]:
             )
         assigned[split_names[split_index]].extend(groups[group_id])
     annotated = {
-        split: [(sample, "", "grouped") for sample in split_samples]
-        for split, split_samples in assigned.items()
+        split: [(sample, "", "grouped") for sample in split_samples] for split, split_samples in assigned.items()
     }
     return _write_manifests(
         output,
@@ -231,9 +230,7 @@ def prepare_manifest_provider(**kwargs: Any) -> dict[str, Path]:
                 with Image.open(mask_path) as mask:
                     mask.load()
                     if mask.size != (width, height):
-                        raise ManifestError(
-                            f"size mismatch for {sample_id}: image={(width, height)}, mask={mask.size}"
-                        )
+                        raise ManifestError(f"size mismatch for {sample_id}: image={(width, height)}, mask={mask.size}")
             except (OSError, UnidentifiedImageError) as exc:
                 raise ManifestError(f"invalid files for {sample_id}: {exc}") from exc
             rows.append(

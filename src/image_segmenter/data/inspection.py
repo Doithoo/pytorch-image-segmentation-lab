@@ -159,8 +159,7 @@ def inspect_prepared_data(
             raw_values.update(int(value) for value in np.unique(raw))
         else:
             raw_colors.update(
-                (int(color[0]), int(color[1]), int(color[2]))
-                for color in np.unique(raw.reshape(-1, 3), axis=0)
+                (int(color[0]), int(color[1]), int(color[2])) for color in np.unique(raw.reshape(-1, 3), axis=0)
             )
         for class_id in mapped_counts:
             mapped_counts[class_id] += int((mapped == class_id).sum())
@@ -183,8 +182,7 @@ def inspect_prepared_data(
         },
         "ignore_ratio": ignored_pixels / total_pixels if total_pixels else 0.0,
         "classes": [
-            {"id": item.id, "name": item.name, "color": list(item.color)}
-            for item in metadata.label_schema.classes
+            {"id": item.id, "name": item.name, "color": list(item.color)} for item in metadata.label_schema.classes
         ],
     }
     if raw_colors:

@@ -59,8 +59,7 @@ def create_model(
     num_classes: int,
     pretrained: bool,
     **params,
-) -> torch.nn.Module:
-    ...
+) -> torch.nn.Module: ...
 ```
 
 Models accept float `[B,C,H,W]` tensors and return `[B,K,H,W]` logits without
@@ -106,8 +105,7 @@ def create_dataset(
     transform: collections.abc.Callable,
     label_schema: LabelSchema,
     **params,
-) -> torch.utils.data.Dataset:
-    ...
+) -> torch.utils.data.Dataset: ...
 ```
 
 Each item is a float `Tensor[C,H,W]`, long `Tensor[H,W]`, and string sample ID.

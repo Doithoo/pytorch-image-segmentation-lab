@@ -69,8 +69,7 @@ def create_model(
     num_classes: int,
     pretrained: bool,
     **params,
-) -> torch.nn.Module:
-    ...
+) -> torch.nn.Module: ...
 ```
 
 模型接收 `[B,C,H,W]` 浮点 tensor，返回 `[B,K,H,W]` logits。模型内部不执行
@@ -128,8 +127,7 @@ def create_dataset(
     transform: collections.abc.Callable,
     label_schema: LabelSchema,
     **params,
-) -> torch.utils.data.Dataset:
-    ...
+) -> torch.utils.data.Dataset: ...
 ```
 
 每条样本返回：

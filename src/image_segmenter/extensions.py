@@ -48,13 +48,10 @@ def load_factory(path: str, *, required_keywords: Iterable[str] = ()) -> Callabl
     for parameter in parameters.values():
         if (
             parameter.default is inspect.Parameter.empty
-            and parameter.kind
-            not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+            and parameter.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
             and parameter.name not in supplied
         ):
-            raise ExtensionError(
-                f"factory {path!r} has unsupported required parameter {parameter.name!r}"
-            )
+            raise ExtensionError(f"factory {path!r} has unsupported required parameter {parameter.name!r}")
     return factory
 
 

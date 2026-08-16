@@ -375,9 +375,7 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         cfg.train.best_metric.startswith("class_iou:") and bool(cfg.train.best_metric.removeprefix("class_iou:"))
     )
     if not valid_best_metric:
-        raise ValueError(
-            "train.best_metric must be mean_iou, mean_dice, pixel_accuracy, or class_iou:<name>"
-        )
+        raise ValueError("train.best_metric must be mean_iou, mean_dice, pixel_accuracy, or class_iou:<name>")
     if cfg.device not in ("auto", "cpu", "cuda", "mps"):
         raise ValueError("device must be auto, cpu, cuda, or mps")
     if cfg.log_level not in ("debug", "info", "warning", "error", "critical"):

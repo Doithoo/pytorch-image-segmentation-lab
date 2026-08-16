@@ -232,9 +232,7 @@ def evaluate_checkpoint(
         key=lambda row: float(row["mean_iou"]),
     )
     worst_ids = [str(row["sample_id"]) for row in worst_rows[:error_limit]]
-    _render_samples(
-        destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config, label_schema
-    )
+    _render_samples(destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config, label_schema)
     _render_samples(destination, "worst_cases", worst_ids, dataset, model, runtime_device, config, label_schema)
     if plot:
         plot_loss_curve(checkpoint_path.parent / "metrics.csv", destination / "loss_curve.png")

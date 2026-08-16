@@ -43,7 +43,9 @@ def _batch() -> tuple[torch.Tensor, torch.Tensor, list[str]]:
 )
 def test_preflight_rejects_invalid_images(images: torch.Tensor, message: str, schema: LabelSchema) -> None:
     with pytest.raises(ValueError, match=message):
-        validate_batch_contract(TinyModel(), (images, torch.zeros(2, 16, 16, dtype=torch.long), ["a", "b"]), schema, expected_in_channels=3)
+        validate_batch_contract(
+            TinyModel(), (images, torch.zeros(2, 16, 16, dtype=torch.long), ["a", "b"]), schema, expected_in_channels=3
+        )
 
 
 @pytest.mark.parametrize(

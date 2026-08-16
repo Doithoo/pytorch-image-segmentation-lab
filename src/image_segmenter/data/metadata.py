@@ -63,7 +63,9 @@ class PreparedDatasetMetadata:
         keys = set(self.manifests)
         if set(self.split_counts) != keys or set(self.manifest_sha256) != keys:
             raise ValueError("manifest paths, counts, and hashes must describe the same splits")
-        if any(not isinstance(count, int) or isinstance(count, bool) or count < 0 for count in self.split_counts.values()):
+        if any(
+            not isinstance(count, int) or isinstance(count, bool) or count < 0 for count in self.split_counts.values()
+        ):
             raise ValueError("dataset split counts must be non-negative integers")
         if self.seed is not None and (not isinstance(self.seed, int) or isinstance(self.seed, bool)):
             raise ValueError("dataset seed must be an integer or null")

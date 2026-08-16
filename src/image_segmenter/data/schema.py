@@ -75,9 +75,7 @@ class LabelSchema:
     def to_dict(self) -> dict[str, Any]:
         """Convert the schema to YAML-safe built-in containers."""
         return {
-            "classes": [
-                {"id": item.id, "name": item.name, "color": list(item.color)} for item in self.classes
-            ],
+            "classes": [{"id": item.id, "name": item.name, "color": list(item.color)} for item in self.classes],
             "ignore_index": self.ignore_index,
         }
 

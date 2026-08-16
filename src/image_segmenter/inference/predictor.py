@@ -50,9 +50,7 @@ class Predictor:
         with torch.no_grad():
             prediction = self.model(tensor).argmax(dim=1).squeeze(0).cpu().numpy()
         dtype = np.uint8 if self.label_schema.num_classes <= 256 else np.uint16
-        restored = Image.fromarray(prediction.astype(dtype)).resize(
-            original.size, resample=Image.Resampling.NEAREST
-        )
+        restored = Image.fromarray(prediction.astype(dtype)).resize(original.size, resample=Image.Resampling.NEAREST)
         return np.asarray(restored, dtype=dtype)
 
     def predict_path(self, image_path: str | Path, output: str | Path) -> dict[str, Path]:

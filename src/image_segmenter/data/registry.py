@@ -105,9 +105,7 @@ def _validate_external_sample(
     label_schema: LabelSchema,
 ) -> None:
     if not isinstance(sample, tuple) or len(sample) != 3:
-        raise ExtensionError(
-            f"external dataset split {split!r} must return (image, target, sample_id)"
-        )
+        raise ExtensionError(f"external dataset split {split!r} must return (image, target, sample_id)")
     image, target, sample_id = sample
     if not isinstance(image, torch.Tensor) or image.ndim != 3 or not image.is_floating_point():
         raise ExtensionError(f"external dataset split {split!r} image must be a float Tensor[C,H,W]")
@@ -154,9 +152,7 @@ def load_external_datasets(
         except Exception as exc:
             raise ExtensionError(f"external dataset factory {factory_path!r} failed for {split}: {exc}") from exc
         if not isinstance(dataset, Dataset):
-            raise ExtensionError(
-                f"external dataset factory {factory_path!r} did not return torch.utils.data.Dataset"
-            )
+            raise ExtensionError(f"external dataset factory {factory_path!r} did not return torch.utils.data.Dataset")
         if not isinstance(dataset, Sized):
             raise ExtensionError(f"external dataset split {split!r} must define __len__")
         if len(cast(Sized, dataset)) == 0:
