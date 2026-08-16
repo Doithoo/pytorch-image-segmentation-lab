@@ -113,6 +113,8 @@ def test_three_class_prepare_train_evaluate_predict_flow(tmp_path: Path) -> None
         }
     )
 
+    assert train_from_config(config, dry_run=True) is None
+    assert not (Path(config.output_dir) / "three-class").exists()
     run_dir = train_from_config(config)
     assert run_dir is not None
     checkpoint = load_checkpoint(run_dir / "best.pt")
