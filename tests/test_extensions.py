@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import pytest
 import torch
 
+from image_segmenter.data import ClassDefinition, LabelSchema, load_external_datasets
+from image_segmenter.data.transforms import PairedTransform
 from image_segmenter.extensions import ExtensionError, load_factory
 from image_segmenter.models import create_model
 
@@ -76,3 +80,55 @@ def test_external_model_output_shape_is_checked_on_first_forward() -> None:
 
     with pytest.raises(ExtensionError, match=r"expected \[B,3,H,W\].*got \(1, 1, 16, 16\)"):
         model(torch.randn(1, 3, 16, 16))
+
+
+def _external_schema() -> LabelSchema:
+    return LabelSchema(
+        classes=(
+            ClassDefinition(0, "background", (0, 0, 0)),
+            ClassDefinition(1, "object", (255, 255, 255)),
+        ),
+        ignore_index=255,
+    )
+
+
+def test_external_dataset_factory_returns_three_validated_splits(tmp_path: Path) -> None:
+    transform = PairedTransform(16, [0.0] * 3, [1.0] * 3)
+
+    datasets = load_external_datasets(
+        "tests.fixtures.external_datasets:create_dataset",
+        data_dir=tmp_path / "data",
+        manifest_dir=tmp_path / "manifests",
+        transforms={split: transform for split in ("train", "valid", "test")},
+        label_schema=_external_schema(),
+        params={"length": 2},
+    )
+
+    assert set(datasets) == {"train", "valid", "test"}
+    assert datasets["valid"][0][2] == "valid-0"
+
+
+def test_external_dataset_factory_must_return_dataset(tmp_path: Path) -> None:
+    transform = PairedTransform(16, [0.0] * 3, [1.0] * 3)
+    with pytest.raises(ExtensionError, match="did not return torch.utils.data.Dataset"):
+        load_external_datasets(
+            "tests.fixtures.external_datasets:returns_object",
+            data_dir=tmp_path,
+            manifest_dir=tmp_path,
+            transforms={split: transform for split in ("train", "valid", "test")},
+            label_schema=_external_schema(),
+            params={},
+        )
+
+
+def test_external_dataset_sample_contract_is_validated(tmp_path: Path) -> None:
+    transform = PairedTransform(16, [0.0] * 3, [1.0] * 3)
+    with pytest.raises(ExtensionError, match=r"must return \(image, target, sample_id\)"):
+        load_external_datasets(
+            "tests.fixtures.external_datasets:bad_item",
+            data_dir=tmp_path,
+            manifest_dir=tmp_path,
+            transforms={split: transform for split in ("train", "valid", "test")},
+            label_schema=_external_schema(),
+            params={},
+        )

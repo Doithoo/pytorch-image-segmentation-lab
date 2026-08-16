@@ -10,6 +10,7 @@ from .registry import (
     available_datasets,
     dataset_status,
     get_dataset_spec,
+    load_external_datasets,
     prepare_dataset,
     register_dataset,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "build_transform",
     "dataset_status",
     "get_dataset_spec",
+    "load_external_datasets",
     "map_mask",
     "prepare_oxford_manifests",
     "prepare_paired_manifests",
