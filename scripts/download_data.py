@@ -80,7 +80,7 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
                 or member.islnk()
             ):
                 raise ValueError(f"unsafe archive member: {member.name}")
-        handle.extractall(destination)
+        handle.extractall(destination, filter="data")
 
 
 def install_oxford_archives(
