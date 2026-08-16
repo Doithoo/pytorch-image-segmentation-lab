@@ -68,9 +68,15 @@ def _write_run_metadata(
     path: Path,
     device: torch.device,
     manifest_checksums: dict[str, str],
+    *,
+    model: torch.nn.Module,
+    config: ExperimentConfig,
+    effective_amp: bool,
+    label_schema_sha256: str,
 ) -> None:
     if path.exists():
         return
+    model_metadata = dict(getattr(model, "checkpoint_metadata", {}))
     metadata = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -88,6 +94,21 @@ def _write_run_metadata(
             "mps_available": torch.backends.mps.is_available(),
         },
         "manifest_sha256": manifest_checksums,
+        "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
+        "trainable_parameter_count": sum(
+            parameter.numel() for parameter in model.parameters() if parameter.requires_grad
+        ),
+        "model": {
+            "name": config.model.name,
+            "provider": model_metadata.get("provider", "external" if config.model.factory else None),
+            "factory": config.model.factory,
+            "parameters": dict(config.model.params),
+            "pretrained": config.model.pretrained,
+        },
+        "effective_amp": effective_amp,
+        "label_schema_sha256": label_schema_sha256,
+        "selected_metric": config.train.best_metric,
+        "total_training_seconds": 0.0,
     }
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(yaml.safe_dump(metadata, sort_keys=False))
@@ -149,10 +170,7 @@ def train_from_config(
     manifest_dir = Path(config.data.manifest_dir)
     metadata = read_dataset_metadata(manifest_dir / "dataset.yaml")
     label_schema = metadata.label_schema
-    if (
-        config.model.expected_num_classes is not None
-        and config.model.expected_num_classes != label_schema.num_classes
-    ):
+    if config.model.expected_num_classes is not None and config.model.expected_num_classes != label_schema.num_classes:
         raise ValueError(
             f"model.expected_num_classes={config.model.expected_num_classes} does not match "
             f"dataset schema with {label_schema.num_classes} classes"
@@ -286,9 +304,7 @@ def train_from_config(
             raise ValueError("resume checkpoint does not belong to the configured run directory")
         checkpoint = load_checkpoint(checkpoint_path)
         _validate_resume(checkpoint, config, manifest_checksums, label_schema.to_dict())
-        completed_epoch, best_metric = restore_training_state(
-            checkpoint, model, optimizer, scheduler, precision
-        )
+        completed_epoch, best_metric = restore_training_state(checkpoint, model, optimizer, scheduler, precision)
         start_epoch = completed_epoch + 1
         if start_epoch > config.train.epochs:
             raise ValueError(
@@ -297,5 +313,13 @@ def train_from_config(
 
     run_dir.mkdir(parents=True, exist_ok=True)
     dump_config(config, run_dir / "config.yaml")
-    _write_run_metadata(run_dir / "run.yaml", device, manifest_checksums)
+    _write_run_metadata(
+        run_dir / "run.yaml",
+        device,
+        manifest_checksums,
+        model=model,
+        config=config,
+        effective_amp=precision.effective,
+        label_schema_sha256=metadata.label_schema_sha256,
+    )
     return trainer.fit(train_loader, valid_loader, start_epoch=start_epoch, best_metric=best_metric)

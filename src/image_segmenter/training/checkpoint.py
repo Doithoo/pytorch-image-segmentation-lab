@@ -100,8 +100,7 @@ def save_checkpoint(
         "class_names": [item.name for item in schema.classes],
         "label_schema": schema.to_dict(),
         "label_schema_sha256": schema_hash,
-        "precision_state": precision_state
-        or {"requested": False, "effective": False, "scaler": None},
+        "precision_state": precision_state or {"requested": False, "effective": False, "scaler": None},
         "label_map": dict(cfg.data.label_map),
         "ignore_index": schema.ignore_index,
         "manifest_checksums": dict(manifest_checksums),

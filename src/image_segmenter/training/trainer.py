@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import csv
 import math
+import time
 from pathlib import Path
 from typing import Any
 
 import torch
+import yaml
 from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -60,7 +62,27 @@ class Trainer:
 
     def _metric_fields(self) -> list[str]:
         keys = self._metric_keys()
-        return ["epoch", "train_loss", *(f"train_{key}" for key in keys), "valid_loss", *(f"valid_{key}" for key in keys), "lr"]
+        return [
+            "epoch",
+            "train_loss",
+            *(f"train_{key}" for key in keys),
+            "valid_loss",
+            *(f"valid_{key}" for key in keys),
+            "lr",
+            "selected_metric",
+            "epoch_duration_seconds",
+        ]
+
+    def _record_fit_runtime(self, elapsed_seconds: float) -> None:
+        path = self.run_dir / "run.yaml"
+        metadata = yaml.safe_load(path.read_text())
+        if not isinstance(metadata, dict):
+            raise ValueError(f"run metadata is invalid: {path}")
+        metadata["last_fit_seconds"] = elapsed_seconds
+        metadata["total_training_seconds"] = float(metadata.get("total_training_seconds", 0.0)) + elapsed_seconds
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(yaml.safe_dump(metadata, sort_keys=False))
+        temporary.replace(path)
 
     def dry_run(self, loader: DataLoader[Any]) -> None:
         """Execute one real optimization update without creating run artifacts."""
@@ -135,6 +157,7 @@ class Trainer:
         best_metric: float = -math.inf,
     ) -> Path:
         """Train through the configured final epoch and write run artifacts."""
+        fit_started = time.monotonic()
         self.run_dir.mkdir(parents=True, exist_ok=True)
         metrics_path = self.run_dir / "metrics.csv"
         append = start_epoch > 1
@@ -145,21 +168,24 @@ class Trainer:
             if not append:
                 writer.writeheader()
             for epoch in range(start_epoch, self.config.train.epochs + 1):
+                epoch_started = time.monotonic()
                 learning_rate = float(self.optimizer.param_groups[0]["lr"])
                 train_metrics = self._run_epoch(train_loader, training=True)
                 with torch.no_grad():
                     valid_metrics = self._run_epoch(valid_loader, training=False)
                 if self.scheduler is not None:
                     self.scheduler.step()
-                row: dict[str, float | int] = {
+                row: dict[str, object] = {
                     "epoch": epoch,
                     "train_loss": train_metrics["loss"],
                     "valid_loss": valid_metrics["loss"],
                     "lr": learning_rate,
+                    "selected_metric": self.config.train.best_metric,
                 }
                 for key in self._metric_keys():
                     row[f"train_{key}"] = train_metrics[key]
                     row[f"valid_{key}"] = valid_metrics[key]
+                row["epoch_duration_seconds"] = time.monotonic() - epoch_started
                 writer.writerow(row)
                 handle.flush()
                 metric_name = self.config.train.best_metric
@@ -198,4 +224,5 @@ class Trainer:
                     f"train_loss={float(train_metrics['loss']):.4f} "
                     f"valid_{metric_name}={valid_score:.4f}"
                 )
+        self._record_fit_runtime(time.monotonic() - fit_started)
         return self.run_dir

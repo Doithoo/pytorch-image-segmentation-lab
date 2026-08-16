@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 
 import pytest
@@ -62,6 +63,19 @@ def test_fit_writes_best_last_metrics_and_resumes(paired_data: Path, tmp_path: P
     assert run_metadata["pytorch"]
     assert run_metadata["torchvision"]
     assert run_metadata["manifest_sha256"].keys() == {"train", "valid"}
+    assert run_metadata["parameter_count"] > 0
+    assert run_metadata["trainable_parameter_count"] == run_metadata["parameter_count"]
+    assert run_metadata["model"]["name"] == "unet_small"
+    assert run_metadata["model"]["provider"] == "image-segmenter"
+    assert run_metadata["model"]["factory"] is None
+    assert run_metadata["effective_amp"] is False
+    assert run_metadata["label_schema_sha256"]
+    assert run_metadata["selected_metric"] == "class_iou:pet"
+    assert run_metadata["total_training_seconds"] >= 0
+    with (run_dir / "metrics.csv").open(newline="") as handle:
+        row = next(csv.DictReader(handle))
+    assert float(row["epoch_duration_seconds"]) >= 0
+    assert row["selected_metric"] == "class_iou:pet"
     assert load_checkpoint(run_dir / "last.pt")["epoch"] == 1
     cfg.train.epochs = 2
     train_from_config(cfg, resume=run_dir / "last.pt")
