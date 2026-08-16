@@ -1,0 +1,175 @@
+"""Assemble configured data, model, loss, optimizer, and Trainer."""
+
+from __future__ import annotations
+
+import hashlib
+import random
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import torch
+from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
+from torch.utils.data import DataLoader
+
+from ..config import ExperimentConfig, dump_config, to_dict
+from ..data import SegmentationDataset, build_transform
+from ..models import create_model
+from .checkpoint import load_checkpoint, restore_training_state
+from .losses import SegmentationLoss
+from .trainer import Trainer
+
+
+def resolve_device(requested: str) -> torch.device:
+    """Resolve an explicit device or choose the best available accelerator."""
+    if requested == "auto":
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise ValueError("CUDA was explicitly requested but is unavailable")
+    if requested == "mps" and not torch.backends.mps.is_available():
+        raise ValueError("MPS was explicitly requested but is unavailable")
+    return torch.device(requested)
+
+
+def seed_everything(seed: int) -> None:
+    """Seed process-level random number generators."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def _seed_worker(worker_id: int) -> None:
+    worker_seed = (torch.initial_seed() + worker_id) % (2**32)
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _validate_resume(
+    checkpoint: dict[str, object],
+    config: ExperimentConfig,
+    manifest_checksums: dict[str, str],
+) -> None:
+    saved_config = checkpoint["config"]
+    if not isinstance(saved_config, dict):
+        raise ValueError("checkpoint config is invalid")
+    if saved_config.get("model") != to_dict(config)["model"]:
+        raise ValueError("checkpoint model configuration does not match the current run")
+    if checkpoint["label_map"] != config.data.label_map:
+        raise ValueError("checkpoint label mapping does not match the current run")
+    if checkpoint["ignore_index"] != config.loss.ignore_index:
+        raise ValueError("checkpoint ignore index does not match the current run")
+    if checkpoint["manifest_checksums"] != manifest_checksums:
+        raise ValueError("checkpoint manifests do not match the current run")
+
+
+def train_from_config(
+    config: ExperimentConfig,
+    *,
+    resume: str | Path | None = None,
+    dry_run: bool = False,
+) -> Path | None:
+    """Run a dry check or a complete configured training job."""
+    seed_everything(config.train.seed)
+    device = resolve_device(config.device)
+    manifest_dir = Path(config.data.manifest_dir)
+    train_manifest = manifest_dir / "train.csv"
+    valid_manifest = manifest_dir / "valid.csv"
+    for path in (train_manifest, valid_manifest):
+        if not path.is_file():
+            raise FileNotFoundError(f"manifest not found: {path}")
+    manifest_checksums = {"train": _sha256(train_manifest), "valid": _sha256(valid_manifest)}
+
+    train_dataset = SegmentationDataset(
+        train_manifest,
+        build_transform(config.data, training=True),
+        config.data.label_map,
+        config.data.ignore_values,
+        config.loss.ignore_index,
+        config.data.max_train_samples,
+    )
+    valid_dataset = SegmentationDataset(
+        valid_manifest,
+        build_transform(config.data, training=False),
+        config.data.label_map,
+        config.data.ignore_values,
+        config.loss.ignore_index,
+        config.data.max_valid_samples,
+    )
+    generator = torch.Generator().manual_seed(config.train.seed)
+    loader_options = {
+        "batch_size": config.train.batch_size,
+        "num_workers": config.data.num_workers,
+        "pin_memory": config.data.pin_memory,
+        "worker_init_fn": _seed_worker,
+    }
+    train_loader = DataLoader(train_dataset, shuffle=True, generator=generator, **loader_options)
+    valid_loader = DataLoader(valid_dataset, shuffle=False, **loader_options)
+
+    model = create_model(
+        config.model.name,
+        in_channels=config.model.in_channels,
+        num_classes=config.model.num_classes,
+        base_channels=config.model.base_channels,
+        pretrained=config.model.pretrained,
+    ).to(device)
+    criterion = SegmentationLoss(
+        config.loss.cross_entropy_weight,
+        config.loss.dice_weight,
+        config.loss.ignore_index,
+    )
+    if config.train.optimizer != "adamw":
+        raise ValueError(f"unsupported optimizer: {config.train.optimizer}")
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.lr, weight_decay=config.train.weight_decay)
+    scheduler: LRScheduler | None
+    if config.train.scheduler == "cosine":
+        scheduler = CosineAnnealingLR(optimizer, T_max=config.train.epochs)
+    elif config.train.scheduler == "none":
+        scheduler = None
+    else:
+        raise ValueError(f"unsupported scheduler: {config.train.scheduler}")
+
+    if resume is not None and config.run_name is None:
+        config.run_name = Path(resume).resolve().parent.name
+    if config.run_name is None:
+        config.run_name = f"{config.model.name}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    run_dir = Path(config.output_dir) / config.run_name
+    trainer = Trainer(model, criterion, optimizer, scheduler, device, config, run_dir, manifest_checksums)
+    if dry_run:
+        trainer.dry_run(train_loader)
+        return None
+
+    start_epoch = 1
+    best_metric = -float("inf")
+    if resume is None:
+        if (run_dir / "best.pt").exists() or (run_dir / "last.pt").exists():
+            raise ValueError(f"run directory already contains checkpoints: {run_dir}; use --resume")
+    else:
+        checkpoint_path = Path(resume).resolve()
+        if run_dir.resolve() != checkpoint_path.parent:
+            raise ValueError("resume checkpoint does not belong to the configured run directory")
+        checkpoint = load_checkpoint(checkpoint_path)
+        _validate_resume(checkpoint, config, manifest_checksums)
+        completed_epoch, best_metric = restore_training_state(checkpoint, model, optimizer, scheduler)
+        start_epoch = completed_epoch + 1
+        if start_epoch > config.train.epochs:
+            raise ValueError(
+                f"checkpoint already completed epoch {completed_epoch}; train.epochs={config.train.epochs}"
+            )
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    dump_config(config, run_dir / "config.yaml")
+    return trainer.fit(train_loader, valid_loader, start_epoch=start_epoch, best_metric=best_metric)
