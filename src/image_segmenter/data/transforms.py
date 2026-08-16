@@ -12,6 +12,24 @@ from torchvision.transforms import functional as F
 from ..config import DataConfig
 
 
+class ImageTransform:
+    """Deterministic image-only preprocessing for inference."""
+
+    def __init__(self, image_size: int, mean: list[float], std: list[float]) -> None:
+        self.image_size = image_size
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, image: Image.Image) -> torch.Tensor:
+        resized = F.resize(
+            image.convert("RGB"),
+            [self.image_size, self.image_size],
+            interpolation=InterpolationMode.BILINEAR,
+            antialias=True,
+        )
+        return F.normalize(F.to_tensor(resized), self.mean, self.std)
+
+
 class PairedTransform:
     """Resize and optionally flip an image/mask pair with shared randomness."""
 
