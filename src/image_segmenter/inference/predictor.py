@@ -12,7 +12,7 @@ from ..config import config_from_dict
 from ..data.transforms import ImageTransform
 from ..evaluation.visualization import save_prediction_outputs
 from ..models import create_model
-from ..training.checkpoint import load_checkpoint
+from ..training.checkpoint import checkpoint_label_schema, load_checkpoint
 from ..training.train import resolve_device
 
 SUPPORTED_SUFFIXES = {".jpg", ".jpeg", ".png"}
@@ -25,12 +25,13 @@ class Predictor:
         self.checkpoint_path = Path(checkpoint).resolve()
         saved = load_checkpoint(self.checkpoint_path)
         self.config = config_from_dict(saved["config"])
+        self.label_schema = checkpoint_label_schema(saved)
         self.device = resolve_device(device)
         self.model = create_model(
             self.config.model.name,
             factory=self.config.model.factory,
             in_channels=self.config.model.in_channels,
-            num_classes=self.config.model.num_classes,
+            num_classes=self.label_schema.num_classes,
             pretrained=False,
             params=self.config.model.params,
         )
@@ -47,9 +48,12 @@ class Predictor:
         original = image.convert("RGB")
         tensor = self.transform(original).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            prediction = self.model(tensor).argmax(dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
-        restored = Image.fromarray(prediction).resize(original.size, resample=Image.Resampling.NEAREST)
-        return np.asarray(restored, dtype=np.uint8)
+            prediction = self.model(tensor).argmax(dim=1).squeeze(0).cpu().numpy()
+        dtype = np.uint8 if self.label_schema.num_classes <= 256 else np.uint16
+        restored = Image.fromarray(prediction.astype(dtype)).resize(
+            original.size, resample=Image.Resampling.NEAREST
+        )
+        return np.asarray(restored, dtype=dtype)
 
     def predict_path(self, image_path: str | Path, output: str | Path) -> dict[str, Path]:
         """Predict one image and save raw, color, and overlay outputs."""
@@ -64,7 +68,7 @@ class Predictor:
         with Image.open(source) as opened:
             image = opened.convert("RGB")
         prediction = self.predict_image(image)
-        return save_prediction_outputs(raw_output, image, prediction)
+        return save_prediction_outputs(raw_output, image, prediction, schema=self.label_schema)
 
     def predict_directory(self, input_dir: str | Path, output_dir: str | Path) -> list[dict[str, Path]]:
         """Predict supported files recursively while preserving relative paths."""

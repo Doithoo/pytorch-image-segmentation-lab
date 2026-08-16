@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from .. import __version__
 from ..config import ExperimentConfig, config_from_dict, dump_config, to_dict
-from ..data import SegmentationDataset, build_transform
+from ..data import SegmentationDataset, build_transform, load_external_datasets, read_dataset_metadata
 from ..models import create_model
 from .checkpoint import git_revision, load_checkpoint, restore_training_state
 from .losses import SegmentationLoss
@@ -96,6 +96,7 @@ def _validate_resume(
     checkpoint: dict[str, object],
     config: ExperimentConfig,
     manifest_checksums: dict[str, str],
+    label_schema: object | None = None,
 ) -> None:
     saved_config = checkpoint["config"]
     if not isinstance(saved_config, dict):
@@ -118,6 +119,8 @@ def _validate_resume(
         raise ValueError("checkpoint ignore index does not match the current run")
     if checkpoint["manifest_checksums"] != manifest_checksums:
         raise ValueError("checkpoint manifests do not match the current run")
+    if label_schema is not None and checkpoint.get("label_schema") != label_schema:
+        raise ValueError("checkpoint label schema does not match the current run")
     for values in (saved_values, current_values):
         values["data"] = dict(values["data"])
         values["data"].pop("data_dir")
@@ -142,29 +145,60 @@ def train_from_config(
     seed_everything(config.train.seed)
     device = resolve_device(config.device)
     manifest_dir = Path(config.data.manifest_dir)
-    train_manifest = manifest_dir / "train.csv"
-    valid_manifest = manifest_dir / "valid.csv"
+    metadata = read_dataset_metadata(manifest_dir / "dataset.yaml")
+    label_schema = metadata.label_schema
+    if (
+        config.model.expected_num_classes is not None
+        and config.model.expected_num_classes != label_schema.num_classes
+    ):
+        raise ValueError(
+            f"model.expected_num_classes={config.model.expected_num_classes} does not match "
+            f"dataset schema with {label_schema.num_classes} classes"
+        )
+    if config.loss.ignore_index != label_schema.ignore_index:
+        raise ValueError(
+            f"loss.ignore_index={config.loss.ignore_index} does not match dataset schema "
+            f"ignore_index={label_schema.ignore_index}"
+        )
+    train_manifest = manifest_dir / metadata.manifests["train"]
+    valid_manifest = manifest_dir / metadata.manifests["valid"]
     for path in (train_manifest, valid_manifest):
         if not path.is_file():
             raise FileNotFoundError(f"manifest not found: {path}")
     manifest_checksums = {"train": _sha256(train_manifest), "valid": _sha256(valid_manifest)}
 
-    train_dataset = SegmentationDataset(
-        train_manifest,
-        build_transform(config.data, training=True, ignore_index=config.loss.ignore_index),
-        config.data.label_map,
-        config.data.ignore_values,
-        config.loss.ignore_index,
-        config.data.max_train_samples,
-    )
-    valid_dataset = SegmentationDataset(
-        valid_manifest,
-        build_transform(config.data, training=False, ignore_index=config.loss.ignore_index),
-        config.data.label_map,
-        config.data.ignore_values,
-        config.loss.ignore_index,
-        config.data.max_valid_samples,
-    )
+    train_transform = build_transform(config.data, training=True, ignore_index=label_schema.ignore_index)
+    valid_transform = build_transform(config.data, training=False, ignore_index=label_schema.ignore_index)
+    if config.data.factory is not None:
+        datasets = load_external_datasets(
+            config.data.factory,
+            data_dir=config.data.data_dir,
+            manifest_dir=manifest_dir,
+            transforms={"train": train_transform, "valid": valid_transform, "test": valid_transform},
+            label_schema=label_schema,
+            params=config.data.params,
+        )
+        train_dataset = datasets["train"]
+        valid_dataset = datasets["valid"]
+    else:
+        train_dataset = SegmentationDataset(
+            train_manifest,
+            train_transform,
+            metadata.label_map,
+            list(metadata.ignore_values),
+            label_schema.ignore_index,
+            config.data.max_train_samples,
+            label_schema=label_schema,
+        )
+        valid_dataset = SegmentationDataset(
+            valid_manifest,
+            valid_transform,
+            metadata.label_map,
+            list(metadata.ignore_values),
+            label_schema.ignore_index,
+            config.data.max_valid_samples,
+            label_schema=label_schema,
+        )
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.train.batch_size,
@@ -186,14 +220,14 @@ def train_from_config(
         config.model.name,
         factory=config.model.factory,
         in_channels=config.model.in_channels,
-        num_classes=config.model.num_classes,
+        num_classes=label_schema.num_classes,
         pretrained=config.model.pretrained,
         params=config.model.params,
     ).to(device)
     criterion = SegmentationLoss(
         config.loss.cross_entropy_weight,
         config.loss.dice_weight,
-        config.loss.ignore_index,
+        label_schema.ignore_index,
     )
     if config.train.optimizer != "adamw":
         raise ValueError(f"unsupported optimizer: {config.train.optimizer}")
@@ -211,7 +245,17 @@ def train_from_config(
     if config.run_name is None:
         config.run_name = f"{config.model.name}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     run_dir = Path(config.output_dir) / config.run_name
-    trainer = Trainer(model, criterion, optimizer, scheduler, device, config, run_dir, manifest_checksums)
+    trainer = Trainer(
+        model,
+        criterion,
+        optimizer,
+        scheduler,
+        device,
+        config,
+        run_dir,
+        manifest_checksums,
+        label_schema,
+    )
     if dry_run:
         trainer.dry_run(train_loader)
         return None
@@ -226,7 +270,7 @@ def train_from_config(
         if run_dir.resolve() != checkpoint_path.parent:
             raise ValueError("resume checkpoint does not belong to the configured run directory")
         checkpoint = load_checkpoint(checkpoint_path)
-        _validate_resume(checkpoint, config, manifest_checksums)
+        _validate_resume(checkpoint, config, manifest_checksums, label_schema.to_dict())
         completed_epoch, best_metric = restore_training_state(checkpoint, model, optimizer, scheduler)
         start_epoch = completed_epoch + 1
         if start_epoch > config.train.epochs:

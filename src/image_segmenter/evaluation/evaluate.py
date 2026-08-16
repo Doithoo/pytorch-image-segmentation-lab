@@ -14,9 +14,9 @@ from PIL import Image
 from torch.utils.data import DataLoader
 
 from ..config import ExperimentConfig, config_from_dict
-from ..data import SegmentationDataset, build_transform
+from ..data import LabelSchema, SegmentationDataset, build_transform, read_dataset_metadata
 from ..models import create_model
-from ..training.checkpoint import load_checkpoint
+from ..training.checkpoint import checkpoint_label_schema, load_checkpoint
 from ..training.train import resolve_device
 from .metrics import SegmentationMetrics, per_image_scores, serializable_metrics
 from .visualization import comparison_grid
@@ -42,10 +42,10 @@ def _finite_mean(values: list[float]) -> float:
     return sum(finite) / len(finite) if finite else math.nan
 
 
-def _per_class_rows(metrics: SegmentationMetrics) -> list[dict[str, Any]]:
+def _per_class_rows(metrics: SegmentationMetrics, schema: LabelSchema) -> list[dict[str, Any]]:
     counts = metrics.confusion.to(torch.float64)
     rows: list[dict[str, Any]] = []
-    for index, name in enumerate(("background", "pet")):
+    for index, definition in enumerate(schema.classes):
         intersection = float(counts[index, index].item())
         target_count = float(counts[index].sum().item())
         predicted_count = float(counts[:, index].sum().item())
@@ -54,7 +54,7 @@ def _per_class_rows(metrics: SegmentationMetrics) -> list[dict[str, Any]]:
         rows.append(
             {
                 "class_index": index,
-                "class_name": name,
+                "class_name": definition.name,
                 "iou": intersection / union if union else None,
                 "dice": 2 * intersection / dice_denominator if dice_denominator else None,
                 "target_pixels": int(target_count),
@@ -82,6 +82,7 @@ def _render_samples(
     model: torch.nn.Module,
     device: torch.device,
     config: ExperimentConfig,
+    label_schema: LabelSchema,
 ) -> None:
     destination = output_dir / folder
     destination.mkdir(parents=True, exist_ok=True)
@@ -92,9 +93,10 @@ def _render_samples(
             prediction = model(image.unsqueeze(0).to(device)).argmax(dim=1).squeeze(0).cpu()
         grid = comparison_grid(
             _denormalize(image, config),
-            target.numpy().astype(np.uint8),
-            prediction.numpy().astype(np.uint8),
-            config.loss.ignore_index,
+            target.numpy(),
+            prediction.numpy(),
+            label_schema.ignore_index,
+            schema=label_schema,
         )
         safe_name = sample_id.replace("/", "__")
         grid.save(destination / f"{safe_name}.png")
@@ -146,25 +148,30 @@ def evaluate_checkpoint(
     checkpoint_path = Path(checkpoint).resolve()
     saved = load_checkpoint(checkpoint_path)
     config = config_from_dict(saved["config"])
+    label_schema = checkpoint_label_schema(saved)
     runtime_device = resolve_device(device)
     model = create_model(
         config.model.name,
         factory=config.model.factory,
         in_channels=config.model.in_channels,
-        num_classes=config.model.num_classes,
+        num_classes=label_schema.num_classes,
         pretrained=False,
         params=config.model.params,
     )
     model.load_state_dict(saved["model_state"])
     model.to(runtime_device).eval()
-    manifest = Path(config.data.manifest_dir) / f"{split}.csv"
+    metadata = read_dataset_metadata(Path(config.data.manifest_dir) / "dataset.yaml")
+    if metadata.label_schema != label_schema:
+        raise ValueError("checkpoint label schema does not match prepared dataset metadata")
+    manifest = Path(config.data.manifest_dir) / metadata.manifests[split]
     dataset = SegmentationDataset(
         manifest,
         build_transform(config.data, training=False, ignore_index=config.loss.ignore_index),
-        config.data.label_map,
-        config.data.ignore_values,
-        config.loss.ignore_index,
+        metadata.label_map,
+        list(metadata.ignore_values),
+        label_schema.ignore_index,
         _sample_limit(config, split),
+        label_schema=label_schema,
     )
     loader = DataLoader(
         dataset,
@@ -173,7 +180,12 @@ def evaluate_checkpoint(
         num_workers=config.data.num_workers,
         pin_memory=config.data.pin_memory,
     )
-    aggregate = SegmentationMetrics(config.model.num_classes, config.loss.ignore_index)
+    class_names = tuple(item.name for item in label_schema.classes)
+    aggregate = SegmentationMetrics(
+        label_schema.num_classes,
+        label_schema.ignore_index,
+        class_names=class_names,
+    )
     per_image_rows: list[dict[str, Any]] = []
     with torch.no_grad():
         for images, targets, sample_ids in loader:
@@ -181,48 +193,49 @@ def evaluate_checkpoint(
             predictions = logits.argmax(dim=1).cpu()
             aggregate.update(predictions, targets)
             for sample_id, scores in zip(
-                sample_ids, per_image_scores(predictions, targets, config.loss.ignore_index), strict=True
+                sample_ids,
+                per_image_scores(
+                    predictions,
+                    targets,
+                    label_schema.ignore_index,
+                    label_schema.num_classes,
+                    class_names,
+                ),
+                strict=True,
             ):
                 per_image_rows.append({"sample_id": sample_id, **scores})
 
     global_metrics = aggregate.compute()
-    pet_ious = [float(row["pet_iou"]) for row in per_image_rows]
-    pet_dice = [float(row["pet_dice"]) for row in per_image_rows]
+    mean_ious = [float(row["mean_iou"]) for row in per_image_rows]
+    mean_dices = [float(row["mean_dice"]) for row in per_image_rows]
     summary = {
         "checkpoint": checkpoint_record,
         "split": split,
         "sample_count": len(per_image_rows),
         "global": global_metrics,
-        "per_image_mean": {"pet_iou": _finite_mean(pet_ious), "pet_dice": _finite_mean(pet_dice)},
-        "empty_target_count": sum(float(row["target_foreground_ratio"]) == 0 for row in per_image_rows),
+        "per_image_mean": {"mean_iou": _finite_mean(mean_ious), "mean_dice": _finite_mean(mean_dices)},
     }
     destination = Path(output_dir) if output_dir is not None else checkpoint_path.parent / "evaluation"
     destination.mkdir(parents=True, exist_ok=True)
     (destination / "metrics.json").write_text(
         json.dumps(serializable_metrics(summary), indent=2, sort_keys=True, allow_nan=False) + "\n"
     )
-    class_rows = _per_class_rows(aggregate)
+    class_rows = _per_class_rows(aggregate, label_schema)
     _write_csv(destination / "per_class_metrics.csv", class_rows, list(class_rows[0]))
     per_image_rows.sort(key=lambda row: str(row["sample_id"]))
-    image_fields = [
-        "sample_id",
-        "pet_iou",
-        "pet_dice",
-        "target_foreground_ratio",
-        "predicted_foreground_ratio",
-        "valid_pixels",
-        "ignored_pixels",
-    ]
+    image_fields = ["sample_id", *[key for key in per_image_rows[0] if key != "sample_id"]]
     _write_csv(destination / "per_image_metrics.csv", per_image_rows, image_fields)
 
     sample_ids = [str(row["sample_id"]) for row in per_image_rows[:sample_limit]]
     worst_rows = sorted(
-        (row for row in per_image_rows if math.isfinite(float(row["pet_iou"]))),
-        key=lambda row: float(row["pet_iou"]),
+        (row for row in per_image_rows if math.isfinite(float(row["mean_iou"]))),
+        key=lambda row: float(row["mean_iou"]),
     )
     worst_ids = [str(row["sample_id"]) for row in worst_rows[:error_limit]]
-    _render_samples(destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config)
-    _render_samples(destination, "worst_cases", worst_ids, dataset, model, runtime_device, config)
+    _render_samples(
+        destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config, label_schema
+    )
+    _render_samples(destination, "worst_cases", worst_ids, dataset, model, runtime_device, config, label_schema)
     if plot:
         plot_loss_curve(checkpoint_path.parent / "metrics.csv", destination / "loss_curve.png")
     return destination

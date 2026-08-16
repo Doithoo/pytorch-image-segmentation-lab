@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import subprocess
 from pathlib import Path
@@ -15,6 +17,7 @@ from torch.optim.lr_scheduler import LRScheduler
 
 from .. import __version__
 from ..config import ExperimentConfig, to_dict
+from ..data import ClassDefinition, LabelSchema
 
 CHECKPOINT_SCHEMA_VERSION = 1
 CLASS_NAMES = ("background", "pet")
@@ -60,6 +63,7 @@ def save_checkpoint(
     best_metric: float,
     cfg: ExperimentConfig,
     manifest_checksums: dict[str, str],
+    label_schema: LabelSchema | None = None,
 ) -> Path:
     """Atomically save all state required for exact training resume."""
     output = Path(path)
@@ -73,6 +77,16 @@ def save_checkpoint(
         rng_state["cuda"] = torch.cuda.get_rng_state_all()
     if torch.backends.mps.is_available():
         rng_state["mps"] = torch.mps.get_rng_state()
+    schema = label_schema or LabelSchema(
+        classes=(
+            ClassDefinition(0, "background", (32, 32, 32)),
+            ClassDefinition(1, "pet", (46, 204, 113)),
+        ),
+        ignore_index=cfg.loss.ignore_index,
+    )
+    schema_hash = hashlib.sha256(
+        json.dumps(schema.to_dict(), sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     payload = {
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "epoch": epoch,
@@ -81,9 +95,11 @@ def save_checkpoint(
         "optimizer_state": optimizer.state_dict(),
         "scheduler_state": scheduler.state_dict() if scheduler is not None else None,
         "config": to_dict(cfg),
-        "class_names": list(CLASS_NAMES),
+        "class_names": [item.name for item in schema.classes],
+        "label_schema": schema.to_dict(),
+        "label_schema_sha256": schema_hash,
         "label_map": dict(cfg.data.label_map),
-        "ignore_index": cfg.loss.ignore_index,
+        "ignore_index": schema.ignore_index,
         "manifest_checksums": dict(manifest_checksums),
         "model_metadata": dict(getattr(model, "checkpoint_metadata", {})),
         "rng_state": rng_state,
@@ -111,6 +127,24 @@ def load_checkpoint(path: str | Path) -> dict[str, Any]:
     if missing:
         raise ValueError(f"checkpoint is missing required keys: {missing}")
     return loaded
+
+
+def checkpoint_label_schema(checkpoint: dict[str, Any]) -> LabelSchema:
+    """Restore label semantics from new or legacy binary checkpoints."""
+    raw_schema = checkpoint.get("label_schema")
+    if raw_schema is not None:
+        return LabelSchema.from_dict(raw_schema)
+    names = checkpoint.get("class_names", CLASS_NAMES)
+    colors = ((32, 32, 32), (46, 204, 113))
+    classes = tuple(
+        ClassDefinition(
+            index,
+            str(name),
+            colors[index] if index < len(colors) else ((index * 67) % 256, (index * 131) % 256, (index * 197) % 256),
+        )
+        for index, name in enumerate(names)
+    )
+    return LabelSchema(classes=classes, ignore_index=int(checkpoint["ignore_index"]))
 
 
 def restore_training_state(

@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 
 from ..config import ExperimentConfig
+from ..data import LabelSchema
 from ..evaluation.metrics import SegmentationMetrics
 from .checkpoint import save_checkpoint
 from .losses import SegmentationLoss
@@ -34,6 +35,7 @@ class Trainer:
         config: ExperimentConfig,
         run_dir: Path,
         manifest_checksums: dict[str, str],
+        label_schema: LabelSchema,
     ) -> None:
         self.model = model
         self.criterion = criterion
@@ -43,6 +45,19 @@ class Trainer:
         self.config = config
         self.run_dir = run_dir
         self.manifest_checksums = manifest_checksums
+        self.label_schema = label_schema
+
+    def _metric_keys(self) -> list[str]:
+        keys = ["mean_iou", "mean_dice", "pixel_accuracy"]
+        for item in self.label_schema.classes:
+            keys.extend((f"class_iou:{item.name}", f"class_dice:{item.name}"))
+        if tuple(item.name for item in self.label_schema.classes) == ("background", "pet"):
+            keys.extend(("background_iou", "pet_iou", "pet_dice", "macro_dice"))
+        return keys
+
+    def _metric_fields(self) -> list[str]:
+        keys = self._metric_keys()
+        return ["epoch", "train_loss", *(f"train_{key}" for key in keys), "valid_loss", *(f"valid_{key}" for key in keys), "lr"]
 
     def dry_run(self, loader: DataLoader[Any]) -> None:
         """Execute one real optimization update without creating run artifacts."""
@@ -74,7 +89,11 @@ class Trainer:
             self.model.train()
         else:
             self.model.eval()
-        metrics = SegmentationMetrics(num_classes=2, ignore_index=self.config.loss.ignore_index)
+        metrics = SegmentationMetrics(
+            num_classes=self.label_schema.num_classes,
+            ignore_index=self.label_schema.ignore_index,
+            class_names=tuple(item.name for item in self.label_schema.classes),
+        )
         loss_sum = 0.0
         sample_count = 0
         for images, masks, _sample_ids in loader:
@@ -114,7 +133,7 @@ class Trainer:
         if append and not metrics_path.is_file():
             raise ValueError(f"resume metrics file not found: {metrics_path}")
         with metrics_path.open("a" if append else "w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=METRIC_FIELDS, lineterminator="\n")
+            writer = csv.DictWriter(handle, fieldnames=self._metric_fields(), lineterminator="\n")
             if not append:
                 writer.writeheader()
             for epoch in range(start_epoch, self.config.train.epochs + 1):
@@ -124,17 +143,21 @@ class Trainer:
                     valid_metrics = self._run_epoch(valid_loader, training=False)
                 if self.scheduler is not None:
                     self.scheduler.step()
-                row = {
+                row: dict[str, float | int] = {
                     "epoch": epoch,
                     "train_loss": train_metrics["loss"],
-                    "train_pet_iou": train_metrics["pet_iou"],
                     "valid_loss": valid_metrics["loss"],
-                    "valid_pet_iou": valid_metrics["pet_iou"],
                     "lr": learning_rate,
                 }
+                for key in self._metric_keys():
+                    row[f"train_{key}"] = train_metrics[key]
+                    row[f"valid_{key}"] = valid_metrics[key]
                 writer.writerow(row)
                 handle.flush()
-                valid_score = float(valid_metrics["pet_iou"])
+                metric_name = self.config.train.best_metric
+                if metric_name not in valid_metrics:
+                    raise ValueError(f"train.best_metric is not available for this schema: {metric_name}")
+                valid_score = float(valid_metrics[metric_name])
                 improved = math.isfinite(valid_score) and valid_score > best_metric
                 if improved or not (self.run_dir / "best.pt").exists():
                     best_metric = valid_score
@@ -147,6 +170,7 @@ class Trainer:
                         best_metric=best_metric,
                         cfg=self.config,
                         manifest_checksums=self.manifest_checksums,
+                        label_schema=self.label_schema,
                     )
                 save_checkpoint(
                     self.run_dir / "last.pt",
@@ -157,10 +181,11 @@ class Trainer:
                     best_metric=best_metric,
                     cfg=self.config,
                     manifest_checksums=self.manifest_checksums,
+                    label_schema=self.label_schema,
                 )
                 print(
                     f"epoch {epoch}/{self.config.train.epochs} "
                     f"train_loss={float(train_metrics['loss']):.4f} "
-                    f"valid_pet_iou={valid_score:.4f}"
+                    f"valid_{metric_name}={valid_score:.4f}"
                 )
         return self.run_dir

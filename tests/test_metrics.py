@@ -50,3 +50,35 @@ def test_per_image_empty_foreground_is_nan() -> None:
 def test_serializable_metrics_converts_nested_nan_to_none() -> None:
     result = serializable_metrics({"score": math.nan, "nested": [1, {"value": 0.5}]})
     assert result == {"score": None, "nested": [1, {"value": 0.5}]}
+
+
+def test_three_class_confusion_metrics_use_class_names_and_ignore_pixels() -> None:
+    metrics = SegmentationMetrics(
+        num_classes=3,
+        ignore_index=255,
+        class_names=("background", "road", "vehicle"),
+    )
+    prediction = torch.tensor([[[0, 1, 2], [1, 2, 0]]])
+    target = torch.tensor([[[0, 1, 1], [2, 2, 255]]])
+
+    metrics.update(prediction, target)
+    result = metrics.compute()
+
+    assert metrics.confusion.tolist() == [[1, 0, 0], [0, 1, 1], [0, 1, 1]]
+    assert result["class_iou:background"] == 1.0
+    assert result["class_iou:road"] == pytest.approx(1 / 3)
+    assert result["class_iou:vehicle"] == pytest.approx(1 / 3)
+    assert result["mean_iou"] == pytest.approx(5 / 9)
+    assert result["class_dice:road"] == 0.5
+    assert result["mean_dice"] == pytest.approx(2 / 3)
+    assert result["pixel_accuracy"] == pytest.approx(3 / 5)
+
+
+def test_three_class_absent_class_is_excluded_from_macro() -> None:
+    metrics = SegmentationMetrics(3, 255, class_names=("background", "road", "vehicle"))
+    metrics.update(torch.tensor([[[0, 1]]]), torch.tensor([[[0, 1]]]))
+
+    result = metrics.compute()
+
+    assert math.isnan(result["class_iou:vehicle"])
+    assert result["mean_iou"] == 1.0
