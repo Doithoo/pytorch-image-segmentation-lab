@@ -7,12 +7,56 @@ from image_segmenter.config import config_from_dict, dump_config, load_config, t
 
 def test_defaults_match_binary_segmentation_contract() -> None:
     cfg = load_config()
+    assert cfg.config_version == 2
+    assert cfg.data.name == "oxford_pet"
     assert cfg.data.image_size == 128
     assert cfg.data.label_map == {1: 1, 2: 0}
     assert cfg.data.ignore_values == [3]
     assert cfg.loss.ignore_index == 255
     assert cfg.model.name == "unet_small"
     assert cfg.model.num_classes == 2
+
+
+def test_v1_model_fields_migrate_to_v2() -> None:
+    cfg = config_from_dict({"model": {"name": "unet_small", "base_channels": 8, "num_classes": 2}})
+
+    assert cfg.config_version == 2
+    assert cfg.model.params == {"base_channels": 8}
+    assert cfg.model.expected_num_classes == 2
+    assert "base_channels" not in to_dict(cfg)["model"]
+    assert "num_classes" not in to_dict(cfg)["model"]
+
+
+def test_v2_accepts_provider_parameters_and_amp() -> None:
+    cfg = config_from_dict(
+        {
+            "config_version": 2,
+            "model": {"name": "fcn_resnet50", "pretrained": False, "params": {}},
+            "data": {"name": "oxford_pet", "params": {}},
+            "train": {"amp": True, "best_metric": "class_iou:pet"},
+        }
+    )
+
+    assert cfg.train.amp is True
+    assert cfg.train.best_metric == "class_iou:pet"
+
+
+@pytest.mark.parametrize("version", [0, 3, "2", True])
+def test_unknown_or_invalid_config_version_is_rejected(version: object) -> None:
+    with pytest.raises(ValueError, match="config_version"):
+        config_from_dict({"config_version": version})
+
+
+def test_v2_rejects_legacy_model_fields() -> None:
+    with pytest.raises(ValueError, match="model.base_channels"):
+        config_from_dict({"config_version": 2, "model": {"base_channels": 8}})
+
+
+def test_nested_parameter_override_updates_v2_config() -> None:
+    cfg = load_config(overrides={"model.params.base_channels": 12, "data.params.source": "local"})
+
+    assert cfg.model.params == {"base_channels": 12}
+    assert cfg.data.params == {"source": "local"}
 
 
 def test_yaml_then_dotted_override_precedence(tmp_path: Path) -> None:

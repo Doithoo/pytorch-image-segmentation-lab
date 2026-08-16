@@ -1,4 +1,7 @@
+config_version: 2
 data:
+  name: oxford_pet
+  params: {}
   data_dir: data/raw
   manifest_dir: data/manifests
   image_size: 256
@@ -15,9 +18,10 @@ data:
 model:
   name: unet_small
   in_channels: 3
-  num_classes: 2
-  base_channels: 32
+  expected_num_classes: 2
   pretrained: false
+  params:
+    base_channels: 32
 loss:
   name: cross_entropy_dice
   cross_entropy_weight: 0.5
@@ -32,6 +36,8 @@ train:
   scheduler: cosine
   grad_clip: 0.0
   seed: 42
+  amp: false
+  best_metric: class_iou:pet
 device: auto
 output_dir: artifacts
 run_name: reference-unet
