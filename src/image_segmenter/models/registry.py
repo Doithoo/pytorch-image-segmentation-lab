@@ -9,6 +9,7 @@ from typing import Any
 
 from torch import nn
 
+from ..extensions import DirectLogitsContract, ExtensionError, load_factory
 from .spec import MappingOutputAdapter, ModelSpec, ModelStatus, attach_adapter
 from .torchvision_models import build_torchvision_model
 from .unet import SmallUNet
@@ -54,6 +55,7 @@ def model_status(name: str) -> ModelStatus:
 def create_model(
     name: str,
     *,
+    factory: str | None = None,
     in_channels: int,
     num_classes: int,
     pretrained: bool,
@@ -61,6 +63,35 @@ def create_model(
     base_channels: int | None = None,
 ) -> nn.Module:
     """Construct a registered model that follows the direct-logits contract."""
+    if factory is not None:
+        resolved_params = dict(params or {})
+        if base_channels is not None:
+            resolved_params.setdefault("base_channels", base_channels)
+        supplied = ("in_channels", "num_classes", "pretrained", *resolved_params)
+        external_factory = load_factory(factory, required_keywords=supplied)
+        try:
+            external_model = external_factory(
+                in_channels=in_channels,
+                num_classes=num_classes,
+                pretrained=pretrained,
+                **resolved_params,
+            )
+        except ExtensionError:
+            raise
+        except Exception as exc:
+            raise ExtensionError(f"external model factory {factory!r} failed: {exc}") from exc
+        if not isinstance(external_model, nn.Module):
+            raise ExtensionError(f"external model factory {factory!r} did not return torch.nn.Module")
+        contracted = DirectLogitsContract(external_model, num_classes=num_classes, factory_path=factory)
+        dynamic_contracted: Any = contracted
+        dynamic_contracted.checkpoint_metadata = {
+            "architecture": name,
+            "provider": "external",
+            "factory": factory,
+            "parameters": resolved_params,
+            "pretrained": pretrained,
+        }
+        return contracted
     spec = get_model_spec(name)
     status = model_status(name)
     if not status.available:

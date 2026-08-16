@@ -28,6 +28,7 @@ class Predictor:
         self.device = resolve_device(device)
         self.model = create_model(
             self.config.model.name,
+            factory=self.config.model.factory,
             in_channels=self.config.model.in_channels,
             num_classes=self.config.model.num_classes,
             pretrained=False,

@@ -184,6 +184,7 @@ def train_from_config(
 
     model = create_model(
         config.model.name,
+        factory=config.model.factory,
         in_channels=config.model.in_channels,
         num_classes=config.model.num_classes,
         pretrained=config.model.pretrained,
