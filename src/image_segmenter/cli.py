@@ -17,6 +17,7 @@ from .data import (
     available_datasets,
     dataset_status,
     get_dataset_spec,
+    inspect_prepared_data,
     prepare_dataset,
 )
 from .evaluation.evaluate import evaluate_checkpoint
@@ -206,6 +207,19 @@ def _dataset_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_data(args: argparse.Namespace) -> int:
+    config = _resolve_config(args)
+    manifest_dir = args.manifest_dir or config.data.manifest_dir
+    report = inspect_prepared_data(
+        manifest_dir,
+        split=args.split,
+        limit=args.limit,
+        preview=args.preview,
+    )
+    print(yaml.safe_dump(report, sort_keys=False), end="")
+    return 0
+
+
 def _nonnegative_int(value: str) -> int:
     parsed = int(value)
     if parsed < 0:
@@ -238,6 +252,14 @@ def main(argv: list[str] | None = None) -> int:
     dataset_info = subparsers.add_parser("dataset-info", help="inspect one dataset provider")
     dataset_info.add_argument("name", help="registered dataset provider name")
     dataset_info.set_defaults(func=_dataset_info)
+
+    inspect_data = subparsers.add_parser("inspect-data", help="inspect prepared labels and class ratios")
+    _add_config_args(inspect_data)
+    inspect_data.add_argument("--manifest-dir", default=None)
+    inspect_data.add_argument("--split", choices=("train", "valid", "test"), default="train")
+    inspect_data.add_argument("--limit", type=int, default=16)
+    inspect_data.add_argument("--preview", default=None)
+    inspect_data.set_defaults(func=_inspect_data)
 
     prepare = subparsers.add_parser("prepare-data", help="validate paired data and create manifests")
     _add_config_args(prepare)

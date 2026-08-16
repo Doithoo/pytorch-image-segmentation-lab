@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..data import ClassDefinition, LabelSchema
+from ..data.schema import ClassDefinition, LabelSchema
 
 BACKGROUND_COLOR = (32, 32, 32)
 PET_COLOR = (46, 204, 113)

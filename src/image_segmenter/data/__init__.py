@@ -2,6 +2,7 @@
 
 from .dataset import SegmentationDataset, map_mask
 from .manifest import ManifestError, ManifestRow, prepare_oxford_manifests, prepare_paired_manifests
+from .inspection import create_dataset_preview, inspect_prepared_data
 from .masks import MaskDecoder
 from .metadata import PreparedDatasetMetadata, read_dataset_metadata, write_dataset_metadata
 from .registry import (
@@ -31,8 +32,10 @@ __all__ = [
     "SegmentationDataset",
     "available_datasets",
     "build_transform",
+    "create_dataset_preview",
     "dataset_status",
     "get_dataset_spec",
+    "inspect_prepared_data",
     "load_external_datasets",
     "map_mask",
     "prepare_oxford_manifests",
