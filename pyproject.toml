@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77,<82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "image-segmenter"
+version = "0.1.0"
+description = "Beginner-oriented reproducible PyTorch semantic segmentation"
+requires-python = ">=3.10,<3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Yashowhoo" }]
+dependencies = [
+    "torch>=2.0,<3",
+    "torchvision>=0.15,<1",
+    "numpy>=1.24,<3",
+    "pillow>=9,<12",
+    "pyyaml>=6,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7,<9",
+    "ruff>=0.6,<1",
+    "pre-commit>=3,<5",
+    "build>=1.2,<2",
+    "twine>=5,<7",
+]
+plot = ["matplotlib>=3.6,<4"]
+
+[project.scripts]
+segment = "image_segmenter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+image_segmenter = ["py.typed"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
