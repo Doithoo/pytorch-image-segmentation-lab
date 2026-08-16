@@ -20,6 +20,7 @@ from .data import (
     inspect_prepared_data,
     prepare_dataset,
 )
+from .evaluation.comparison import compare_runs, format_comparison, write_comparison_csv
 from .evaluation.evaluate import evaluate_checkpoint
 from .inference import Predictor
 from .models import available_models, create_model, get_model_spec, model_status
@@ -220,6 +221,19 @@ def _inspect_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compare_runs(args: argparse.Namespace) -> int:
+    report = compare_runs(
+        args.run_dirs,
+        metric=args.metric,
+        allow_different_schemas=args.allow_different_schemas,
+    )
+    print(format_comparison(report), end="")
+    if args.output is not None:
+        output = write_comparison_csv(report, args.output)
+        print(f"comparison CSV: {output}")
+    return 0
+
+
 def _nonnegative_int(value: str) -> int:
     parsed = int(value)
     if parsed < 0:
@@ -260,6 +274,17 @@ def main(argv: list[str] | None = None) -> int:
     inspect_data.add_argument("--limit", type=int, default=16)
     inspect_data.add_argument("--preview", default=None)
     inspect_data.set_defaults(func=_inspect_data)
+
+    compare = subparsers.add_parser("compare-runs", help="compare metrics recorded by training runs")
+    compare.add_argument("run_dirs", nargs="+", help="run directories containing config, metadata, and metrics")
+    compare.add_argument("--metric", required=True, help="metrics.csv column to compare")
+    compare.add_argument("--output", default=None, help="optional comparison CSV path")
+    compare.add_argument(
+        "--allow-different-schemas",
+        action="store_true",
+        help="show values with an explicit non-comparable label",
+    )
+    compare.set_defaults(func=_compare_runs)
 
     prepare = subparsers.add_parser("prepare-data", help="validate paired data and create manifests")
     _add_config_args(prepare)
