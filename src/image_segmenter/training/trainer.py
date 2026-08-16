@@ -114,7 +114,7 @@ class Trainer:
         if append and not metrics_path.is_file():
             raise ValueError(f"resume metrics file not found: {metrics_path}")
         with metrics_path.open("a" if append else "w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=METRIC_FIELDS)
+            writer = csv.DictWriter(handle, fieldnames=METRIC_FIELDS, lineterminator="\n")
             if not append:
                 writer.writeheader()
             for epoch in range(start_epoch, self.config.train.epochs + 1):

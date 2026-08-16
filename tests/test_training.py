@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 from image_segmenter.config import load_config
 from image_segmenter.data.manifest import prepare_paired_manifests
 from image_segmenter.training.checkpoint import load_checkpoint
@@ -50,6 +52,14 @@ def test_fit_writes_best_last_metrics_and_resumes(paired_data: Path, tmp_path: P
     assert (run_dir / "best.pt").is_file()
     assert (run_dir / "last.pt").is_file()
     assert (run_dir / "metrics.csv").read_text().count("\n") == 2
+    assert b"\r\n" not in (run_dir / "metrics.csv").read_bytes()
+    run_metadata = yaml.safe_load((run_dir / "run.yaml").read_text())
+    assert run_metadata["schema_version"] == 1
+    assert run_metadata["device"] == "cpu"
+    assert run_metadata["python"]
+    assert run_metadata["pytorch"]
+    assert run_metadata["torchvision"]
+    assert run_metadata["manifest_sha256"].keys() == {"train", "valid"}
     assert load_checkpoint(run_dir / "last.pt")["epoch"] == 1
     cfg.train.epochs = 2
     train_from_config(cfg, resume=run_dir / "last.pt")

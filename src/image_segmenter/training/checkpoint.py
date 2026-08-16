@@ -36,7 +36,7 @@ REQUIRED_KEYS = {
 }
 
 
-def _git_revision() -> str | None:
+def git_revision() -> str | None:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -86,7 +86,7 @@ def save_checkpoint(
         "model_metadata": dict(getattr(model, "checkpoint_metadata", {})),
         "rng_state": rng_state,
         "package_version": __version__,
-        "git_revision": _git_revision(),
+        "git_revision": git_revision(),
     }
     temporary = output.with_suffix(output.suffix + ".tmp")
     torch.save(payload, temporary)

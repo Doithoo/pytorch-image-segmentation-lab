@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import hashlib
+import platform
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import torch
+import torchvision
+import yaml
 from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
 from torch.utils.data import DataLoader
 
+from .. import __version__
 from ..config import ExperimentConfig, dump_config, to_dict
 from ..data import SegmentationDataset, build_transform
 from ..models import create_model
-from .checkpoint import load_checkpoint, restore_training_state
+from .checkpoint import git_revision, load_checkpoint, restore_training_state
 from .losses import SegmentationLoss
 from .trainer import Trainer
 
@@ -56,6 +60,36 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _write_run_metadata(
+    path: Path,
+    device: torch.device,
+    manifest_checksums: dict[str, str],
+) -> None:
+    if path.exists():
+        return
+    metadata = {
+        "schema_version": 1,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "package_version": __version__,
+        "git_revision": git_revision(),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "python": platform.python_version(),
+        "pytorch": str(torch.__version__),
+        "torchvision": torchvision.__version__,
+        "device": str(device),
+        "accelerators": {
+            "cuda_available": torch.cuda.is_available(),
+            "mps_available": torch.backends.mps.is_available(),
+        },
+        "manifest_sha256": manifest_checksums,
+    }
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(yaml.safe_dump(metadata, sort_keys=False))
+    temporary.replace(path)
 
 
 def _validate_resume(
@@ -172,4 +206,5 @@ def train_from_config(
 
     run_dir.mkdir(parents=True, exist_ok=True)
     dump_config(config, run_dir / "config.yaml")
+    _write_run_metadata(run_dir / "run.yaml", device, manifest_checksums)
     return trainer.fit(train_loader, valid_loader, start_epoch=start_epoch, best_metric=best_metric)
