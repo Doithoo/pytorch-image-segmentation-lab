@@ -131,6 +131,8 @@ def _from_dict(cls: type[Any], raw: dict[str, Any], section: str) -> Any:
         label_map = values["label_map"]
         if not isinstance(label_map, dict):
             raise ValueError("data.label_map must be a mapping")
+        if any(isinstance(key, bool) or isinstance(value, bool) for key, value in label_map.items()):
+            raise ValueError("invalid data.label_map; keys and values must be integers")
         values["label_map"] = {int(key): int(value) for key, value in label_map.items()}
     return cls(**values)
 
@@ -289,10 +291,16 @@ def _validate_config(cfg: ExperimentConfig) -> None:
             raise ValueError("invalid data.crop_size; expected dimensions divisible by 16 for unet_small")
     if cfg.model.expected_num_classes is not None:
         _positive_int("model.expected_num_classes", cfg.model.expected_num_classes)
-    if not isinstance(cfg.data.label_map, dict) or set(cfg.data.label_map.values()) != {0, 1}:
-        raise ValueError("invalid data.label_map; mapped classes must be exactly 0 and 1")
-    if any(not isinstance(key, int) or not isinstance(value, int) for key, value in cfg.data.label_map.items()):
+    if not isinstance(cfg.data.label_map, dict) or not cfg.data.label_map:
+        raise ValueError("invalid data.label_map; expected a non-empty mapping")
+    if any(
+        not isinstance(key, int) or isinstance(key, bool) or not isinstance(value, int) or isinstance(value, bool)
+        for key, value in cfg.data.label_map.items()
+    ):
         raise ValueError("invalid data.label_map; keys and values must be integers")
+    mapped_classes = set(cfg.data.label_map.values())
+    if mapped_classes != set(range(max(mapped_classes) + 1)):
+        raise ValueError("invalid data.label_map; mapped classes must be contiguous integers starting at 0")
     if not isinstance(cfg.data.ignore_values, list) or any(
         not isinstance(value, int) for value in cfg.data.ignore_values
     ):
@@ -303,7 +311,7 @@ def _validate_config(cfg: ExperimentConfig) -> None:
         raise ValueError("data.label_map and data.ignore_values must not overlap")
     if not isinstance(cfg.loss.ignore_index, int) or isinstance(cfg.loss.ignore_index, bool):
         raise ValueError("loss.ignore_index must be an integer")
-    if cfg.loss.ignore_index in {0, 1}:
+    if cfg.loss.ignore_index in mapped_classes:
         raise ValueError("loss.ignore_index must differ from trainable classes")
     if not isinstance(cfg.data.split_ratios, list) or len(cfg.data.split_ratios) != 3:
         raise ValueError("data.split_ratios must contain three non-negative values")

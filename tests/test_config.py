@@ -73,6 +73,36 @@ def test_yaml_label_map_keys_become_integers(tmp_path: Path) -> None:
     assert load_config(path).data.label_map == {10: 1, 20: 0}
 
 
+def test_multiclass_label_map_uses_contiguous_target_ids() -> None:
+    config = config_from_dict(
+        {
+            "config_version": 2,
+            "data": {"label_map": {0: 0, 10: 1, 20: 2}, "ignore_values": [255]},
+            "model": {"expected_num_classes": 3},
+        }
+    )
+
+    assert config.data.label_map == {0: 0, 10: 1, 20: 2}
+
+
+@pytest.mark.parametrize("label_map", [{0: 0, 2: 2}, {0: -1, 1: 0}, {0: False, 1: 1}])
+def test_label_map_rejects_noncontiguous_or_boolean_target_ids(label_map: dict[int, int]) -> None:
+    with pytest.raises(ValueError, match="invalid data.label_map"):
+        config_from_dict({"config_version": 2, "data": {"label_map": label_map}})
+
+
+def test_ignore_index_must_not_overlap_a_multiclass_target() -> None:
+    with pytest.raises(ValueError, match="loss.ignore_index must differ from trainable classes"):
+        config_from_dict(
+            {
+                "config_version": 2,
+                "data": {"label_map": {0: 0, 1: 1, 2: 2}, "ignore_values": [255]},
+                "model": {"expected_num_classes": 3},
+                "loss": {"ignore_index": 2},
+            }
+        )
+
+
 def test_unknown_key_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "config.yaml"
     path.write_text("train:\n  epohs: 2\n")
