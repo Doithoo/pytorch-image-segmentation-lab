@@ -168,7 +168,7 @@ uv run segment model-info lraspp_mobilenet_v3_large
 uv run segment list-datasets
 uv run segment dataset-info paired_masks
 uv run segment inspect-data --config configs/my_data.yaml --limit 6
-uv run segment compare-runs artifacts/compare-* --metric mean_iou
+uv run segment compare-runs artifacts/compare-* --metric valid_mean_iou
 ```
 
 缺少可选依赖时，模型仍出现在列表中并显示

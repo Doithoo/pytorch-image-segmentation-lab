@@ -32,11 +32,13 @@ uv run python -c "import torch; print('cuda', torch.cuda.is_available()); print(
 `device: auto` chooses CUDA, then MPS, then CPU. An explicitly unavailable
 device raises an error instead of silently changing hardware.
 
+After preparing data in Tutorial 02, use the bounded config for a CPU pipeline check:
+
 ```bash
 uv run segment train --config configs/learning_minimal.yaml --dry-run --device cpu
 ```
 
-The minimal config is bounded enough for a CPU pipeline check. Device kernels
+Device kernels
 may produce small floating-point differences even with fixed seeds; record the
 environment and compare trends rather than expecting cross-device bit identity.
 
@@ -65,6 +67,8 @@ nvidia-smi
 uv run python -c "import torch; print(torch.__version__, torch.version.cuda); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CUDA unavailable')"
 uv run segment train --config configs/learning_minimal.yaml --dry-run --device cuda --set train.amp true
 ```
+
+Run the CUDA dry run only after `prepare-data` has created `data/manifests/dataset.yaml`.
 
 AMP is effective only on CUDA. Its scaler state is saved in checkpoints, so do not change the
 effective AMP setting while resuming one run. CPU and MPS use full precision even when AMP is

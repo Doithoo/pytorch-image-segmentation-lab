@@ -47,7 +47,8 @@ uv run segment train --config configs/learning_minimal.yaml --dry-run --device c
 ```
 
 显式请求不可用的 `cuda` 或 `mps` 会立即报错，而不是暗中退回 CPU。这样日志中的设备
-信息才可信。
+信息才可信。下面的训练 dry run 需要先按教程 02 执行 `prepare-data`，生成
+`data/manifests/dataset.yaml`。
 
 ## 第一次为什么从 CPU 开始
 
