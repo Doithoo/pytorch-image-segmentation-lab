@@ -91,12 +91,17 @@ def test_chinese_readme_presents_a_guided_journey_and_real_results() -> None:
         assert phrase in text
 
 
-def test_public_learning_docs_do_not_contain_agent_execution_plans() -> None:
-    assert not (ROOT / "docs" / "superpowers").exists()
-    for document in (ROOT / "docs").rglob("*.md"):
-        text = document.read_text().lower()
-        assert "for agentic workers" not in text
-        assert "required sub-skill" not in text
+def test_docs_tree_contains_only_published_sections() -> None:
+    section_names = {path.name for path in (ROOT / "docs").iterdir() if path.is_dir()}
+    assert section_names == {
+        "architecture",
+        "assets",
+        "concepts",
+        "guides",
+        "recorded-run",
+        "reference",
+        "tutorial",
+    }
 
 
 def test_extension_guides_reference_runnable_names_and_factories() -> None:
