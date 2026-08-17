@@ -42,6 +42,7 @@ dev = [
     "tomli>=2,<3; python_version < '3.11'",
 ]
 plot = ["matplotlib>=3.6,<4"]
+model-zoo = ["segmentation-models-pytorch>=0.5,<1"]
 
 [project.urls]
 Homepage = "https://github.com/Doithoo/pytorch-image-segmentation-lab"
@@ -72,8 +73,9 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not model_zoo'"
 pythonpath = ["."]
+markers = ["model_zoo: tests requiring the optional model-zoo dependency"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -83,5 +85,5 @@ no_implicit_optional = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["torchvision", "torchvision.*"]
+module = ["segmentation_models_pytorch", "segmentation_models_pytorch.*", "torchvision", "torchvision.*"]
 ignore_missing_imports = true

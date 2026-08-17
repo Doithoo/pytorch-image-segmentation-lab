@@ -10,6 +10,7 @@ from typing import Any
 from torch import nn
 
 from ..extensions import DirectLogitsContract, ExtensionError, load_factory
+from .smp_models import build_smp_model
 from .spec import MappingOutputAdapter, ModelSpec, ModelStatus, attach_adapter
 from .torchvision_models import build_torchvision_model
 from .unet import SmallUNet
@@ -162,5 +163,26 @@ for _name in (
             supports_pretrained=True,
             output_adapter=MappingOutputAdapter("out"),
             input_constraints=("Requires three-channel RGB input.",),
+        )
+    )
+
+for _name in ("smp_unet", "smp_unetplusplus", "smp_fpn", "smp_pan"):
+    register_model(
+        ModelSpec(
+            name=_name,
+            provider="segmentation-models-pytorch",
+            factory=partial(build_smp_model, _name),
+            dependency="segmentation_models_pytorch",
+            install_hint="uv sync --extra model-zoo",
+            supports_pretrained=True,
+            parameters={
+                "encoder_name": "SMP encoder name, such as resnet18 or mobilenet_v2.",
+                "encoder_weights": "Encoder weights name; use null for offline random initialization.",
+            },
+            input_constraints=(
+                "Input height and width must be at least 128 for PAN."
+                if _name == "smp_pan"
+                else "Input height and width must suit the selected encoder.",
+            ),
         )
     )

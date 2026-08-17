@@ -29,6 +29,11 @@ def test_project_metadata_describes_the_published_package() -> None:
     assert any(dependency.startswith("matplotlib") for dependency in project["optional-dependencies"]["dev"])
     assert any(dependency.startswith("mypy") for dependency in project["optional-dependencies"]["dev"])
     assert any(dependency.startswith("types-PyYAML") for dependency in project["optional-dependencies"]["dev"])
+    assert project["optional-dependencies"]["model-zoo"] == ["segmentation-models-pytorch>=0.5,<1"]
+    assert (
+        "model_zoo: tests requiring the optional model-zoo dependency"
+        in metadata["tool"]["pytest"]["ini_options"]["markers"]
+    )
 
 
 def test_wheel_declares_typed_package_and_all_reference_configs() -> None:
