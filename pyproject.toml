@@ -60,7 +60,15 @@ where = ["src"]
 image_segmenter = ["py.typed"]
 
 [tool.setuptools.data-files]
-"share/image-segmenter/configs" = ["configs/*.yaml"]
+"share/image-segmenter/configs" = [
+    "configs/deeplabv3_resnet50.yaml",
+    "configs/fcn_resnet50.yaml",
+    "configs/learning_minimal.yaml",
+    "configs/lraspp_mobilenet.yaml",
+    "configs/reference_unet.yaml",
+    "configs/smp_unetplusplus.yaml",
+    "configs/voc2012.yaml",
+]
 
 [tool.ruff]
 line-length = 120

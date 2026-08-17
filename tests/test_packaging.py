@@ -41,7 +41,9 @@ def test_wheel_declares_typed_package_and_all_reference_configs() -> None:
         metadata = tomllib.load(handle)
     assert metadata["tool"]["setuptools"]["package-data"]["image_segmenter"] == ["py.typed"]
     config_data = metadata["tool"]["setuptools"]["data-files"]["share/image-segmenter/configs"]
-    assert config_data == ["configs/*.yaml"]
+    assert "configs/custom_model_example.yaml" not in config_data
+    assert "configs/custom_dataset_example.yaml" not in config_data
+    assert "configs/learning_minimal.yaml" in config_data
     assert {path.name for path in (ROOT / "configs").glob("*.yaml")} == {
         "learning_minimal.yaml",
         "reference_unet.yaml",

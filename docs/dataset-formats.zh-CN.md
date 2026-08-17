@@ -13,7 +13,8 @@
 | `voc2012` | 解压后的 VOC 2012 目录结构 |
 
 准备结果统一包含 `dataset.yaml` 和 train/valid/test manifest。元数据记录标签模式、路径、
-样本数和哈希。掩码可使用 `L/P/I;16` 索引值，也可在元数据中定义 RGB 颜色映射。
-几何处理支持 `stretch`、`letterbox` 和成对 crop；掩码始终使用最近邻插值。
+样本数和哈希。内置 provider 接受 `L/P/I;16` 索引掩码；RGB 颜色掩码目前需要通过外部
+Dataset factory 转为类别 ID。几何处理支持 `stretch`、`letterbox` 和成对 crop；掩码
+始终使用最近邻插值。
 
 需要由 Python 代码读取特殊格式时，继续看[接入自己的 Dataset](adding-datasets.zh-CN.md)。

@@ -41,6 +41,7 @@ class Predictor:
             self.config.data.image_size,
             self.config.data.normalize_mean,
             self.config.data.normalize_std,
+            resize_mode=self.config.data.resize_mode,
         )
 
     def predict_image(self, image: Image.Image) -> np.ndarray:
@@ -49,6 +50,14 @@ class Predictor:
         tensor = self.transform(original).unsqueeze(0).to(self.device)
         with torch.no_grad():
             prediction = self.model(tensor).argmax(dim=1).squeeze(0).cpu().numpy()
+        if self.config.data.resize_mode == "letterbox":
+            target_height, target_width = self.transform.output_size
+            scale = min(target_width / original.width, target_height / original.height)
+            resized_width = max(1, min(target_width, round(original.width * scale)))
+            resized_height = max(1, min(target_height, round(original.height * scale)))
+            left = (target_width - resized_width) // 2
+            top = (target_height - resized_height) // 2
+            prediction = prediction[top : top + resized_height, left : left + resized_width]
         dtype = np.uint8 if self.label_schema.num_classes <= 256 else np.uint16
         restored = Image.fromarray(prediction.astype(dtype)).resize(original.size, resample=Image.Resampling.NEAREST)
         return np.asarray(restored, dtype=dtype)

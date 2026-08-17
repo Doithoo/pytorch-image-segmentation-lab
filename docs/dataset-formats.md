@@ -13,8 +13,9 @@ Run `uv run segment list-datasets` and `dataset-info NAME` before preparing data
 | `voc2012` | Extracted VOC 2012 layout |
 
 Prepared data always has `dataset.yaml` plus train, valid, and test manifests. The metadata stores
-the label schema, path policy, counts, and hashes. Masks may be indexed `L/P/I;16` images or RGB
-color masks when the metadata defines the mapping. Geometry options are `stretch`, `letterbox`,
-and optional paired crop; masks always use nearest-neighbor interpolation.
+the label schema, path policy, counts, and hashes. Built-in providers accept indexed `L/P/I;16`
+masks. RGB color masks currently require an external Dataset factory that converts colors to class
+IDs. Geometry options are `stretch`, `letterbox`, and optional paired crop; masks always use
+nearest-neighbor interpolation.
 
 For code-defined datasets, see [adding-datasets.md](adding-datasets.md).

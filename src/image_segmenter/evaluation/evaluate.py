@@ -177,7 +177,6 @@ def evaluate_checkpoint(
             params=config.data.params,
         )
         dataset = datasets[split]
-        renderable = False
     else:
         dataset = SegmentationDataset(
             manifest,
@@ -188,7 +187,6 @@ def evaluate_checkpoint(
             _sample_limit(config, split),
             label_schema=label_schema,
         )
-        renderable = True
     loader = DataLoader(
         dataset,
         batch_size=config.train.batch_size,
@@ -248,7 +246,7 @@ def evaluate_checkpoint(
         key=lambda row: float(row["mean_iou"]),
     )
     worst_ids = [str(row["sample_id"]) for row in worst_rows[:error_limit]]
-    if renderable:
+    if isinstance(dataset, SegmentationDataset):
         _render_samples(
             destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config, label_schema
         )

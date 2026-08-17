@@ -30,18 +30,53 @@ def normalize_size(value: SizeValue, *, name: str) -> tuple[int, int]:
 class ImageTransform:
     """Deterministic image-only preprocessing for inference."""
 
-    def __init__(self, image_size: SizeValue, mean: list[float], std: list[float]) -> None:
+    def __init__(
+        self,
+        image_size: SizeValue,
+        mean: list[float],
+        std: list[float],
+        *,
+        resize_mode: str = "stretch",
+    ) -> None:
         self.output_size = normalize_size(image_size, name="image_size")
         self.mean = mean
         self.std = std
+        if resize_mode not in {"stretch", "letterbox"}:
+            raise ValueError("resize_mode must be stretch or letterbox")
+        self.resize_mode = resize_mode
 
     def __call__(self, image: Image.Image) -> torch.Tensor:
-        resized = F.resize(
-            image.convert("RGB"),
-            list(self.output_size),
-            interpolation=InterpolationMode.BILINEAR,
-            antialias=True,
-        )
+        image = image.convert("RGB")
+        if self.resize_mode == "stretch":
+            resized = F.resize(
+                image,
+                list(self.output_size),
+                interpolation=InterpolationMode.BILINEAR,
+                antialias=True,
+            )
+        else:
+            target_height, target_width = self.output_size
+            scale = min(target_width / image.width, target_height / image.height)
+            resized_width = max(1, min(target_width, round(image.width * scale)))
+            resized_height = max(1, min(target_height, round(image.height * scale)))
+            resized = F.resize(
+                image,
+                [resized_height, resized_width],
+                interpolation=InterpolationMode.BILINEAR,
+                antialias=True,
+            )
+            horizontal_padding = target_width - resized_width
+            vertical_padding = target_height - resized_height
+            resized = F.pad(
+                resized,
+                [
+                    horizontal_padding // 2,
+                    vertical_padding // 2,
+                    horizontal_padding - horizontal_padding // 2,
+                    vertical_padding - vertical_padding // 2,
+                ],
+                fill=0,
+            )
         return F.normalize(F.to_tensor(resized), self.mean, self.std)
 
 
