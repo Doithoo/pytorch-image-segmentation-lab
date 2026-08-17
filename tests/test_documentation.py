@@ -94,7 +94,8 @@ def test_extension_guides_reference_runnable_names_and_factories() -> None:
     combined = "\n".join(
         (ROOT / path).read_text()
         for path in CORE_DOCUMENTS
-        if path.name in {"model-zoo.md", "using-models.md", "adding-models.md", "dataset-formats.md", "adding-datasets.md"}
+        if path.name
+        in {"model-zoo.md", "using-models.md", "adding-models.md", "dataset-formats.md", "adding-datasets.md"}
     )
     for value in (
         "fcn_resnet50",

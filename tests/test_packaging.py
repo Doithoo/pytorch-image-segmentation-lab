@@ -62,7 +62,19 @@ def test_installed_cli_help_lists_complete_workflow() -> None:
         capture_output=True,
         text=True,
     )
-    for command in ("show-config", "prepare-data", "train", "evaluate", "predict"):
+    for command in (
+        "show-config",
+        "list-models",
+        "model-info",
+        "list-datasets",
+        "dataset-info",
+        "inspect-data",
+        "compare-runs",
+        "prepare-data",
+        "train",
+        "evaluate",
+        "predict",
+    ):
         assert command in completed.stdout
 
 
@@ -83,6 +95,10 @@ def test_release_scaffolding_covers_ci_templates_and_local_check() -> None:
     assert (ROOT / ".github/ISSUE_TEMPLATE/bug.yml").is_file()
     assert (ROOT / ".github/ISSUE_TEMPLATE/learning-question.yml").is_file()
     assert (ROOT / ".github/pull_request_template.md").is_file()
+    assert "model-zoo:" in workflow
+    assert "uv sync --locked --extra dev --extra model-zoo" in workflow
+    assert "pytest -m model_zoo" in workflow
     makefile = (ROOT / "Makefile").read_text()
     assert "check: lint format typecheck test build metadata" in makefile
+    assert "test-model-zoo:" in makefile
     assert "twine check dist/*" in makefile

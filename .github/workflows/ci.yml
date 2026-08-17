@@ -32,6 +32,19 @@ jobs:
       - name: Test without network-dependent assets
         run: uv run pytest -W error::DeprecationWarning
 
+  model-zoo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install locked optional model environment
+        run: uv sync --locked --extra dev --extra model-zoo
+      - name: Test optional models without pretrained weights
+        run: uv run --extra model-zoo pytest -m model_zoo tests/test_smp_models.py
+
   package:
     runs-on: ubuntu-latest
     steps:
