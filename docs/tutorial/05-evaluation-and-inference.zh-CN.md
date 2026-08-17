@@ -119,5 +119,5 @@ Predictor 从 checkpoint 恢复网络尺寸、归一化和模型结构，把网�
 - 一张代表性成功图和一张失败图；
 - 配置、设备、版本和一个已知限制。
 
-接下来可以按[实验指南](../experiments.zh-CN.md)做受控对比，或按
-[自己的数据指南](../using-your-data.zh-CN.md)迁移到新任务。
+接下来可以按[实验指南](../guides/experiments.zh-CN.md)做受控对比，或按
+[自己的数据指南](../guides/using-your-data.zh-CN.md)迁移到新任务。

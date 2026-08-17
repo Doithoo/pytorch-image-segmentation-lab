@@ -1,6 +1,6 @@
 # 核心代码包怎么读
 
-[English](README.md) | [代码导览](../../docs/code-tour.zh-CN.md)
+[English](README.md) | [代码导览](../../docs/concepts/code-tour.zh-CN.md)
 
 这里是安装后由 `segment` 命令调用的代码。第一次先运行 `examples/`，再把本页放在编辑器
 旁边，沿调用顺序读正式实现。

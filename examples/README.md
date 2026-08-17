@@ -1,6 +1,6 @@
 # Five Small Programs to Run First
 
-[简体中文](README.zh-CN.md) | [Learning path](../docs/learning-path.md)
+[简体中文](README.zh-CN.md) | [Learning path](../docs/tutorial/learning-path.md)
 
 Run these in numeric order, predict the output, then compare code. Each isolates
 one production idea and links to its full module.

@@ -1,6 +1,6 @@
 # Three Runnable Configurations
 
-[简体中文](README.zh-CN.md) | [Configuration reference](../docs/config-reference.md)
+[简体中文](README.zh-CN.md) | [Configuration reference](../docs/reference/config-reference.md)
 
 Start from the nearest working config, inspect it with `show-config`, and change
 one named setting instead of writing YAML from scratch.

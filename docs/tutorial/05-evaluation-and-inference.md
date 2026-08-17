@@ -48,5 +48,5 @@ masks.
 
 A useful report identifies the split and checkpoint, global and per-image
 metrics, sample/empty counts, one success and failure image, environment, and a
-known limitation. Continue to [experiments](../experiments.md) or
-[custom data](../using-your-data.md).
+known limitation. Continue to [experiments](../guides/experiments.md) or
+[custom data](../guides/using-your-data.md).

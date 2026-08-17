@@ -1,6 +1,6 @@
 # Image Segmentation Tutorial
 
-[简体中文](README.zh-CN.md) | [Back to README](../../README.md)
+[简体中文](README.zh-CN.md) | [Documentation](../README.md) | [Project README](../../README.md)
 
 Do not read all six chapters before running anything. Complete the short README
 workflow first, then open the chapter that answers the question in front of you.
@@ -18,4 +18,4 @@ A practical order is `00 -> 02 -> 03 -> 04 -> 05`. Keep chapter 01 nearby as a
 setup reference. Each chapter ends with a question you can answer by running or
 reading the project.
 
-For a concrete failure, go directly to [troubleshooting](../troubleshooting.md).
+For a concrete failure, go directly to [troubleshooting](../guides/troubleshooting.md).

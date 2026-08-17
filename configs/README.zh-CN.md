@@ -1,6 +1,6 @@
 # 可直接运行的配置
 
-[English](README.md) | [配置参考](../docs/config-reference.zh-CN.md)
+[English](README.md) | [配置参考](../docs/reference/config-reference.zh-CN.md)
 
 不要从空白 YAML 开始。先选择最接近目标的一份，运行 `show-config`，再用一个有名字的
 覆盖做实验。

@@ -1,6 +1,6 @@
 # How to Read the Package
 
-[简体中文](README.zh-CN.md) | [Code tour](../../docs/code-tour.md)
+[简体中文](README.zh-CN.md) | [Code tour](../../docs/concepts/code-tour.md)
 
 ```text
 segment train -> CLI -> resolved config -> train_from_config

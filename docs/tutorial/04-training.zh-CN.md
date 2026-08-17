@@ -152,4 +152,4 @@ uv run segment train --config configs/learning_minimal.yaml \
 更高就继续调它；那会把 test 变成 validation。
 
 训练完成后进入[教程 05：评测与推理](05-evaluation-and-inference.zh-CN.md)。异常现象可
-直接查[排错指南](../troubleshooting.zh-CN.md)。
+直接查[排错指南](../guides/troubleshooting.zh-CN.md)。

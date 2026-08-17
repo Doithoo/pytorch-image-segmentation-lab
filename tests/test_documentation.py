@@ -6,20 +6,22 @@ import pytest
 ROOT = Path(__file__).parents[1]
 CORE_DOCUMENTS = [
     Path("README.md"),
-    Path("docs/learning-path.md"),
-    Path("docs/code-tour.md"),
-    Path("docs/how-it-works.md"),
-    Path("docs/configuration-flow.md"),
-    Path("docs/config-reference.md"),
-    Path("docs/using-your-data.md"),
-    Path("docs/model-zoo.md"),
-    Path("docs/using-models.md"),
-    Path("docs/adding-models.md"),
-    Path("docs/dataset-formats.md"),
-    Path("docs/adding-datasets.md"),
-    Path("docs/voc2012.md"),
-    Path("docs/experiments.md"),
-    Path("docs/reference-run.md"),
+    Path("docs/README.md"),
+    Path("docs/concepts/code-tour.md"),
+    Path("docs/concepts/how-it-works.md"),
+    Path("docs/concepts/configuration-flow.md"),
+    Path("docs/guides/using-your-data.md"),
+    Path("docs/guides/using-models.md"),
+    Path("docs/guides/adding-models.md"),
+    Path("docs/guides/adding-datasets.md"),
+    Path("docs/guides/experiments.md"),
+    Path("docs/guides/troubleshooting.md"),
+    Path("docs/recorded-run/README.md"),
+    Path("docs/reference/config-reference.md"),
+    Path("docs/reference/dataset-formats.md"),
+    Path("docs/reference/model-zoo.md"),
+    Path("docs/reference/voc2012.md"),
+    Path("docs/tutorial/learning-path.md"),
     Path("docs/tutorial/00-basics.md"),
     Path("docs/tutorial/01-environment.md"),
     Path("docs/tutorial/02-data-and-masks.md"),
@@ -27,7 +29,6 @@ CORE_DOCUMENTS = [
     Path("docs/tutorial/04-training.md"),
     Path("docs/tutorial/05-evaluation-and-inference.md"),
     Path("docs/tutorial/README.md"),
-    Path("docs/troubleshooting.md"),
     Path("configs/README.md"),
     Path("examples/README.md"),
     Path("src/image_segmenter/README.md"),
@@ -45,6 +46,14 @@ def test_core_document_has_a_chinese_companion(english: Path) -> None:
     chinese = _translated(english)
     assert (ROOT / english).is_file(), f"missing English document: {english}"
     assert (ROOT / chinese).is_file(), f"missing Chinese document: {chinese}"
+
+
+def test_docs_root_is_a_navigable_hub() -> None:
+    root_documents = {path.name for path in (ROOT / "docs").glob("*.md")}
+    assert root_documents == {"README.md", "README.zh-CN.md"}
+    text = (ROOT / "docs/README.md").read_text()
+    for section in ("Tutorial", "Guides", "Reference", "Concepts", "Recorded run", "Architecture"):
+        assert section in text
 
 
 def test_readme_contains_verified_beginner_commands_and_semantics() -> None:

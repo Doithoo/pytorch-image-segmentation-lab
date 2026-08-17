@@ -115,21 +115,21 @@ environment; they are not a universal U-Net benchmark.
 
 ![Reference U-Net train and validation loss](docs/assets/reference-unet-loss-curve.png)
 
-The [reference report](docs/reference-run.md) preserves configuration, runtime
+The [reference report](docs/recorded-run/README.md) preserves configuration, runtime
 metadata, manifest hashes, metric tables, and failure examples. The current
 repository tree does not keep the 89 MB checkpoint; reproduce it with the
 published config and verify the recorded SHA-256 when sharing a release artifact.
 
 ## Continue learning
 
-- Follow the [learning path](docs/learning-path.md) from tensor shapes to a controlled experiment.
-- Use the [tutorial index](docs/tutorial/README.md) to choose the chapter that answers your current question.
-- Trace one sample through the package with the [code tour](docs/code-tour.md).
-- Read [how it works](docs/how-it-works.md) for labels, loss, metrics, and checkpoints.
-- Compare CE/Dice, U-Net width, flips, and DeepLabV3 with the [experiment guide](docs/experiments.md).
-- Choose and switch architectures with the [model zoo](docs/model-zoo.md) and [model guide](docs/using-models.md).
-- Choose a source layout in [dataset formats](docs/dataset-formats.md), or implement [a model](docs/adding-models.md) / [a Dataset](docs/adding-datasets.md) factory.
-- Diagnose setup, data, training, and inference failures with [troubleshooting](docs/troubleshooting.md).
+- Open the [documentation index](docs/README.md) to choose a guide, reference,
+  concept, or recorded result by purpose.
+- Follow the [learning path](docs/tutorial/learning-path.md), or choose one
+  chapter from the [tutorial index](docs/tutorial/README.md).
+- Trace one sample with the [code tour](docs/concepts/code-tour.md), then use
+  [how it works](docs/concepts/how-it-works.md) for the underlying decisions.
+- Go directly to [troubleshooting](docs/guides/troubleshooting.md) when a
+  command, dataset, training run, or prediction fails.
 
 ## Use your own data
 
@@ -141,7 +141,7 @@ my-data/
 `-- masks/sample-001.png
 ```
 
-Read [using your data](docs/using-your-data.md) before training. It covers mask
+Read [using your data](docs/guides/using-your-data.md) before training. It covers mask
 values, label mapping, separate manifests, non-empty splits, and one-batch
 validation. Built-in paired geometry includes stretch, letterbox, crop, and flip.
 

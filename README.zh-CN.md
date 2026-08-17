@@ -124,20 +124,16 @@ IoU 为 `0.902836`；在 3,669 张官方测试图片上，宠物 IoU 为 `0.9066
 
 ![参考运行的训练与验证损失](docs/assets/reference-unet-loss-curve.png)
 
-[参考运行说明](docs/reference-run.zh-CN.md)保留配置、环境、清单哈希、逐类/逐图指标和
+[参考运行说明](docs/recorded-run/README.zh-CN.md)保留配置、环境、清单哈希、逐类/逐图指标和
 失败案例。当前仓库树不再保留 89 MB 的模型 checkpoint；重新训练时比较配置、manifest
 哈希和结果趋势，另行获得原 checkpoint 时再用记录的 SHA-256 校验文件。
 
 ## 接着学什么
 
-- 按[学习路线](docs/learning-path.zh-CN.md)完成五个阶段，每一阶段都有运行结果和检查点。
-- 用[教程索引](docs/tutorial/README.zh-CN.md)按问题选择章节，不必从头通读。
-- 用[代码导览](docs/code-tour.zh-CN.md)沿一张图片追踪 Dataset、U-Net、Trainer 和 Predictor。
-- 用[原理说明](docs/how-it-works.zh-CN.md)理解标签、损失、指标和 checkpoint 为什么这样设计。
-- 用[实验指南](docs/experiments.zh-CN.md)比较 CE/Dice、模型宽度、翻转和 DeepLabV3。
-- 用[模型列表](docs/model-zoo.zh-CN.md)和[切换模型指南](docs/using-models.zh-CN.md)选择结构。
-- 在[数据集格式](docs/dataset-formats.zh-CN.md)中选择入口，或接入[自己的模型](docs/adding-models.zh-CN.md)和[自己的 Dataset](docs/adding-datasets.zh-CN.md)。
-- 遇到环境、数据、训练或推理错误时查[排错指南](docs/troubleshooting.zh-CN.md)。
+- 从[文档导航](docs/README.zh-CN.md)按用途选择操作指南、查询资料、原理说明或实测记录。
+- 按[学习路线](docs/tutorial/learning-path.zh-CN.md)逐步实践，或在[教程索引](docs/tutorial/README.zh-CN.md)中按问题选择章节。
+- 用[代码导览](docs/concepts/code-tour.zh-CN.md)追踪一张图片，再用[原理说明](docs/concepts/how-it-works.zh-CN.md)理解背后的设计。
+- 命令、数据、训练或推理失败时直接查[排错指南](docs/guides/troubleshooting.zh-CN.md)。
 
 ## 换成自己的数据
 
@@ -149,7 +145,7 @@ my-data/
 └── masks/sample-001.png
 ```
 
-先阅读[自己的数据指南](docs/using-your-data.zh-CN.md)。它说明怎样检查掩码唯一值、
+先阅读[自己的数据指南](docs/guides/using-your-data.zh-CN.md)。它说明怎样检查掩码唯一值、
 设置 `label_map`、生成独立 manifest、避免空切分，并在长训练前验证一个 batch。
 内置成对几何处理支持 stretch、letterbox、crop 和 flip；长宽比敏感的数据先比较
 stretch 与 letterbox，再确定后续配置。

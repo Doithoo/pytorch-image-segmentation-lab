@@ -169,5 +169,5 @@ Apple silicon 先确认 `torch.backends.mps.is_available()`，再使用 `--devic
 不要通过关闭系统内存安全限制解决 OOM。减小 batch 或输入更容易复现，也更适合作为
 初学者实验。
 
-仍无法定位时查看[排错指南](../troubleshooting.zh-CN.md)。环境稳定后进入
+仍无法定位时查看[排错指南](../guides/troubleshooting.zh-CN.md)。环境稳定后进入
 [教程 02：数据与掩码](02-data-and-masks.zh-CN.md)。

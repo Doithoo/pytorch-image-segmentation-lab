@@ -131,4 +131,4 @@ uv run python -c "from pathlib import Path; import numpy as np; from PIL import 
 把它当背景、忽略，还是立即失败？为什么立即失败对自定义数据更安全？
 
 准备读模型时进入[教程 03：U-Net](03-unet.zh-CN.md)。换自己的数据请看
-[自己的数据指南](../using-your-data.zh-CN.md)。
+[自己的数据指南](../guides/using-your-data.zh-CN.md)。

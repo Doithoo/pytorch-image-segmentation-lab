@@ -67,6 +67,7 @@ VOC_SCHEMA = LabelSchema(
     ),
     ignore_index=255,
 )
+VOC_GUIDE = "docs/reference/voc2012.md"
 
 
 def _voc_root(data_dir: Path) -> Path:
@@ -75,13 +76,13 @@ def _voc_root(data_dir: Path) -> Path:
         if (candidate / "JPEGImages").is_dir() and (candidate / "SegmentationClass").is_dir():
             return candidate
     raise FileNotFoundError(
-        f"VOC 2012 directory not found under {data_dir}; see docs/voc2012.md for the expected local layout"
+        f"VOC 2012 directory not found under {data_dir}; see {VOC_GUIDE} for the expected local layout"
     )
 
 
 def _read_ids(path: Path) -> list[str]:
     if not path.is_file():
-        raise FileNotFoundError(f"VOC split list not found: {path}; see docs/voc2012.md")
+        raise FileNotFoundError(f"VOC split list not found: {path}; see {VOC_GUIDE}")
     values = [line.strip() for line in path.read_text().splitlines() if line.strip()]
     if not values or len(values) != len(set(values)):
         raise ManifestError(f"VOC split list must contain unique sample IDs: {path}")
@@ -116,7 +117,7 @@ def prepare_voc2012_provider(**kwargs: Any) -> dict[str, Path]:
             image_path = source / "JPEGImages" / f"{sample_id}.jpg"
             mask_path = source / "SegmentationClass" / f"{sample_id}.png"
             if not image_path.is_file() or not mask_path.is_file():
-                raise FileNotFoundError(f"VOC labeled sample files not found for {sample_id}; see docs/voc2012.md")
+                raise FileNotFoundError(f"VOC labeled sample files not found for {sample_id}; see {VOC_GUIDE}")
             with Image.open(image_path) as image:
                 width, height = image.size
             with Image.open(mask_path) as mask:

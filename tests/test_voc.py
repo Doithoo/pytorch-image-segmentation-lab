@@ -66,7 +66,7 @@ def test_voc_provider_requires_explicit_test_policy(voc_data: Path, tmp_path: Pa
 
 
 def test_voc_provider_points_missing_data_to_guide(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="docs/voc2012"):
+    with pytest.raises(FileNotFoundError, match="docs/reference/voc2012"):
         prepare_dataset(
             "voc2012",
             data_dir=tmp_path / "missing",

@@ -1,6 +1,6 @@
 # 图像分割实操教程
 
-[English](README.md) | [返回 README](../../README.zh-CN.md)
+[English](README.md) | [文档导航](../README.zh-CN.md) | [项目 README](../../README.zh-CN.md)
 
 不必一次读完六章。先跑 README 中的最短流程，遇到哪个问题，再打开对应章节。
 
@@ -16,4 +16,4 @@
 推荐顺序是 `00 -> 02 -> 03 -> 04 -> 05`。环境已经正常时，01 可以作为随手查询的
 手册。每章最后都有一个可以实际回答的问题；先自己写下答案，再回到代码验证。
 
-遇到具体报错时直接查看[排错指南](../troubleshooting.zh-CN.md)。
+遇到具体报错时直接查看[排错指南](../guides/troubleshooting.zh-CN.md)。

@@ -62,4 +62,4 @@ domains before splitting.
 Print unique values from a raw mask and inspect `map_mask` in
 `data/dataset.py`. Explain why an unknown value raises instead of silently
 becoming background. Continue to [U-Net](03-unet.md) or the
-[custom-data guide](../using-your-data.md).
+[custom-data guide](../guides/using-your-data.md).

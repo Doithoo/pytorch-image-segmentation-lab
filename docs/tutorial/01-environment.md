@@ -140,5 +140,5 @@ as part of the local macOS verification.
 
 For CUDA/MPS failures, worker hangs, or OOM, return to CPU and `num_workers: 0`,
 then change one setting at a time. Never disable system memory safety limits to
-force a run. See [troubleshooting](../troubleshooting.md), then continue to
+force a run. See [troubleshooting](../guides/troubleshooting.md), then continue to
 [data and masks](02-data-and-masks.md).
