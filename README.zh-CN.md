@@ -21,8 +21,9 @@
 connection、Dice loss 和全局/逐图指标。若 logits 和交叉熵仍然陌生，从
 [分割所需的最小概念](docs/tutorial/00-basics.zh-CN.md)开始。
 
-当前版本专注二类语义分割：类别 0 是背景，类别 1 是宠物。实例分割、多类分割和
-多边形标注不在第一阶段范围内。
+第一条路线仍是二类语义分割：类别 0 是背景，类别 1 是宠物。跑通之后，同一套管线可
+使用多分类标签模式、五种数据 provider、九个注册模型，也可通过 Python 工厂接入自己的
+模型或 Dataset。实例分割和全景分割不在当前范围内。
 
 ## 从这里开始
 
@@ -134,6 +135,8 @@ IoU 为 `0.902836`；在 3,669 张官方测试图片上，宠物 IoU 为 `0.9066
 - 用[代码导览](docs/code-tour.zh-CN.md)沿一张图片追踪 Dataset、U-Net、Trainer 和 Predictor。
 - 用[原理说明](docs/how-it-works.zh-CN.md)理解标签、损失、指标和 checkpoint 为什么这样设计。
 - 用[实验指南](docs/experiments.zh-CN.md)比较 CE/Dice、模型宽度、翻转和 DeepLabV3。
+- 用[模型列表](docs/model-zoo.zh-CN.md)和[切换模型指南](docs/using-models.zh-CN.md)选择结构。
+- 在[数据集格式](docs/dataset-formats.zh-CN.md)中选择入口，或接入[自己的模型](docs/adding-models.zh-CN.md)和[自己的 Dataset](docs/adding-datasets.zh-CN.md)。
 - 遇到环境、数据、训练或推理错误时查[排错指南](docs/troubleshooting.zh-CN.md)。
 
 ## 换成自己的数据
@@ -148,14 +151,17 @@ my-data/
 
 先阅读[自己的数据指南](docs/using-your-data.zh-CN.md)。它说明怎样检查掩码唯一值、
 设置 `label_map`、生成独立 manifest、避免空切分，并在长训练前验证一个 batch。
-当前内置变换会把图片和掩码一起缩放为正方形；对医学图像或长宽比敏感的数据，应先
-评估形变影响，再实现 padding/cropping 策略。
+内置成对几何处理支持 stretch、letterbox、crop 和 flip；长宽比敏感的数据先比较
+stretch 与 letterbox，再确定后续配置。
 
-## 三份配置
+## 配置示例
 
 - `configs/learning_minimal.yaml`：CPU 可运行的 128 像素、两轮、小样本入门配置。
 - `configs/reference_unet.yaml`：已经实测的 25 轮手写 U-Net 配置。
 - `configs/deeplabv3_resnet50.yaml`：进阶 torchvision 对照，预训练权重需要联网下载。
+- `configs/fcn_resnet50.yaml`、`configs/lraspp_mobilenet.yaml`：不下载权重的 torchvision 起点。
+- `configs/smp_unetplusplus.yaml`：使用可选 SMP 依赖，encoder 权重设为 null。
+- `configs/custom_model_example.yaml`、`configs/custom_dataset_example.yaml`：可导入的工厂示例。
 
 配置优先级是：
 

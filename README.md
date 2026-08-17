@@ -19,9 +19,10 @@ This lab is for learners who know basic Python, tensors, loss, and gradients but
 have not completed an image segmentation project. You do not need to know U-Net
 or read a paper first. The guided path takes roughly **8–12 hours**.
 
-The current release teaches binary semantic segmentation: class 0 is background
-and class 1 is pet. Instance segmentation, panoptic segmentation, and general
-multi-class annotation formats remain outside this first learning path.
+The first path is binary segmentation: class 0 is background and class 1 is pet.
+After that path works, the same pipeline supports multiclass label schemas, five
+dataset providers, nine registered models, and explicit Python factories for a
+custom model or Dataset. Instance and panoptic segmentation remain out of scope.
 
 ## First run
 
@@ -126,6 +127,8 @@ published config and verify the recorded SHA-256 when sharing a release artifact
 - Trace one sample through the package with the [code tour](docs/code-tour.md).
 - Read [how it works](docs/how-it-works.md) for labels, loss, metrics, and checkpoints.
 - Compare CE/Dice, U-Net width, flips, and DeepLabV3 with the [experiment guide](docs/experiments.md).
+- Choose and switch architectures with the [model zoo](docs/model-zoo.md) and [model guide](docs/using-models.md).
+- Choose a source layout in [dataset formats](docs/dataset-formats.md), or implement [a model](docs/adding-models.md) / [a Dataset](docs/adding-datasets.md) factory.
 - Diagnose setup, data, training, and inference failures with [troubleshooting](docs/troubleshooting.md).
 
 ## Use your own data
@@ -140,14 +143,16 @@ my-data/
 
 Read [using your data](docs/using-your-data.md) before training. It covers mask
 values, label mapping, separate manifests, non-empty splits, and one-batch
-validation. The built-in transform stretches both image and mask to a square;
-aspect-ratio-sensitive domains may need padding or cropping instead.
+validation. Built-in paired geometry includes stretch, letterbox, crop, and flip.
 
 ## Configurations
 
 - `configs/learning_minimal.yaml`: CPU-capable, 128 px, two epochs, bounded samples.
 - `configs/reference_unet.yaml`: measured 25-epoch handwritten U-Net run.
 - `configs/deeplabv3_resnet50.yaml`: advanced torchvision comparison; pretrained weights require network access.
+- `configs/fcn_resnet50.yaml` and `configs/lraspp_mobilenet.yaml`: offline torchvision starts.
+- `configs/smp_unetplusplus.yaml`: optional SMP model with no downloaded weights.
+- `configs/custom_model_example.yaml` and `configs/custom_dataset_example.yaml`: importable factory examples.
 
 Configuration precedence is:
 

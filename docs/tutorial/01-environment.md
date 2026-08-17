@@ -56,6 +56,84 @@ uv run python examples/01_mask_and_logits.py
 If this works, Python, PyTorch, and the local package are connected. Later
 manifest failures belong to data setup, not base installation.
 
+## NVIDIA CUDA
+
+Check the driver and the PyTorch build before changing training settings:
+
+```bash
+nvidia-smi
+uv run python -c "import torch; print(torch.__version__, torch.version.cuda); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CUDA unavailable')"
+uv run segment train --config configs/learning_minimal.yaml --dry-run --device cuda --set train.amp true
+```
+
+AMP is effective only on CUDA. Its scaler state is saved in checkpoints, so do not change the
+effective AMP setting while resuming one run. CPU and MPS use full precision even when AMP is
+requested and print that decision. This project uses one device and does not implement multi-GPU
+or distributed training.
+
+For out-of-memory errors, reduce batch size first, then image size, then U-Net width or encoder
+size. Model-specific memory use differs, so a batch size that works for LRASPP may not work for FCN.
+
+## Apple MPS
+
+On Apple silicon, confirm `torch.backends.mps.is_available()` and use `--device mps`. MPS shares
+system memory and does not use this project's AMP path. Start with `num_workers: 0`; after a dry run,
+increase workers or batch size one setting at a time. Return to `--device cpu` when diagnosing an
+operation that is unsupported by the installed PyTorch MPS backend.
+
+## Kaggle GPU notebook
+
+In Notebook settings, select a GPU accelerator before starting the session. The following cells
+keep source and artifacts under writable `/kaggle/working`; attached datasets remain read-only under
+`/kaggle/input`.
+
+```bash
+!nvidia-smi
+%cd /kaggle/working
+!git clone https://github.com/Doithoo/pytorch-image-segmentation-lab.git
+%cd /kaggle/working/pytorch-image-segmentation-lab
+!pip install -q uv
+!uv sync --locked --extra dev
+```
+
+Replace `my-segmentation-data` with the attached Kaggle dataset directory. This example expects
+paired `images/` and `masks/` folders:
+
+```bash
+!uv run segment prepare-data --config configs/learning_minimal.yaml \
+  --data-dir /kaggle/input/my-segmentation-data \
+  --manifest-dir /kaggle/working/manifests --source-format paired
+
+!uv run segment train --config configs/learning_minimal.yaml --dry-run --device cuda \
+  --output-dir /kaggle/working/artifacts \
+  --set data.manifest_dir /kaggle/working/manifests --set train.amp true
+
+!uv run segment train --config configs/learning_minimal.yaml --device cuda \
+  --output-dir /kaggle/working/artifacts --set run_name kaggle-check \
+  --set data.manifest_dir /kaggle/working/manifests \
+  --set train.epochs 1 --set train.amp true
+```
+
+Resume only from the same run directory and keep the effective AMP setting unchanged:
+
+```bash
+!uv run segment train --config configs/learning_minimal.yaml --device cuda \
+  --output-dir /kaggle/working/artifacts --set run_name kaggle-check \
+  --set data.manifest_dir /kaggle/working/manifests \
+  --set train.epochs 2 --set train.amp true \
+  --resume /kaggle/working/artifacts/kaggle-check/last.pt
+
+!uv run segment evaluate \
+  --checkpoint /kaggle/working/artifacts/kaggle-check/best.pt \
+  --split valid --device cuda \
+  --output-dir /kaggle/working/artifacts/kaggle-check/evaluation
+!tar -czf /kaggle/working/kaggle-check-artifacts.tgz -C /kaggle/working/artifacts kaggle-check
+```
+
+Download the archive from the notebook Output panel before ending the session. Kaggle availability,
+hardware, and session policies can change; these commands are documented but were not hardware-run
+as part of the local macOS verification.
+
 For CUDA/MPS failures, worker hangs, or OOM, return to CPU and `num_workers: 0`,
 then change one setting at a time. Never disable system memory safety limits to
 force a run. See [troubleshooting](../troubleshooting.md), then continue to

@@ -80,6 +80,81 @@ uv run python examples/01_mask_and_logits.py
 这个示例不需要数据下载。它能运行，说明 Python、PyTorch 和项目包已经连通；后续下载
 或 manifest 失败就属于数据阶段，而不是基础安装阶段。
 
+## NVIDIA CUDA
+
+先核对驱动和 PyTorch 构建，再调整训练参数：
+
+```bash
+nvidia-smi
+uv run python -c "import torch; print(torch.__version__, torch.version.cuda); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CUDA unavailable')"
+uv run segment train --config configs/learning_minimal.yaml --dry-run --device cuda --set train.amp true
+```
+
+本项目的 AMP 只在 CUDA 上生效，GradScaler 状态会写入 checkpoint；恢复同一次运行时不要
+改变实际 AMP 语义。CPU 或 MPS 即使请求 AMP 也会明确提示并使用全精度。当前训练器只用
+单个设备，不支持多 GPU 或分布式训练。
+
+出现显存不足时，依次减小 batch、输入尺寸、U-Net 宽度或 encoder 规模。不同模型的显存
+占用不同，LRASPP 能使用的 batch 不代表 FCN 也能使用。
+
+## Apple MPS
+
+Apple silicon 先确认 `torch.backends.mps.is_available()`，再使用 `--device mps`。MPS 使用
+统一内存，不走本项目的 AMP 路径。建议从 `num_workers: 0` 开始，干跑通过后一次只增加
+一个参数。若当前 PyTorch 的 MPS 后端不支持某个算子，先切回 `--device cpu` 区分代码
+问题和设备支持问题。
+
+## 在 Kaggle 使用 GPU
+
+先在 Notebook 设置中选择 GPU accelerator，再启动会话。下面的命令把源码和产物放在可写
+的 `/kaggle/working`；挂载的数据位于只读 `/kaggle/input`。
+
+```bash
+!nvidia-smi
+%cd /kaggle/working
+!git clone https://github.com/Doithoo/pytorch-image-segmentation-lab.git
+%cd /kaggle/working/pytorch-image-segmentation-lab
+!pip install -q uv
+!uv sync --locked --extra dev
+```
+
+把 `my-segmentation-data` 替换为自己挂载的数据集目录。以下示例假设其中有成对的
+`images/` 和 `masks/`：
+
+```bash
+!uv run segment prepare-data --config configs/learning_minimal.yaml \
+  --data-dir /kaggle/input/my-segmentation-data \
+  --manifest-dir /kaggle/working/manifests --source-format paired
+
+!uv run segment train --config configs/learning_minimal.yaml --dry-run --device cuda \
+  --output-dir /kaggle/working/artifacts \
+  --set data.manifest_dir /kaggle/working/manifests --set train.amp true
+
+!uv run segment train --config configs/learning_minimal.yaml --device cuda \
+  --output-dir /kaggle/working/artifacts --set run_name kaggle-check \
+  --set data.manifest_dir /kaggle/working/manifests \
+  --set train.epochs 1 --set train.amp true
+```
+
+恢复训练必须指向同一个运行目录，并保持实际 AMP 设置不变：
+
+```bash
+!uv run segment train --config configs/learning_minimal.yaml --device cuda \
+  --output-dir /kaggle/working/artifacts --set run_name kaggle-check \
+  --set data.manifest_dir /kaggle/working/manifests \
+  --set train.epochs 2 --set train.amp true \
+  --resume /kaggle/working/artifacts/kaggle-check/last.pt
+
+!uv run segment evaluate \
+  --checkpoint /kaggle/working/artifacts/kaggle-check/best.pt \
+  --split valid --device cuda \
+  --output-dir /kaggle/working/artifacts/kaggle-check/evaluation
+!tar -czf /kaggle/working/kaggle-check-artifacts.tgz -C /kaggle/working/artifacts kaggle-check
+```
+
+会话结束前从 Output 面板下载压缩包。Kaggle 的可用硬件和会话规则可能变化；这些命令已
+写入操作指南，但本地 macOS 验证没有实际执行 CUDA kernel 或 Kaggle 会话。
+
 ## 常见设备问题
 
 | 现象 | 先做什么 |

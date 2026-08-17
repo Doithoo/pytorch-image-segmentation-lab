@@ -12,6 +12,12 @@ CORE_DOCUMENTS = [
     Path("docs/configuration-flow.md"),
     Path("docs/config-reference.md"),
     Path("docs/using-your-data.md"),
+    Path("docs/model-zoo.md"),
+    Path("docs/using-models.md"),
+    Path("docs/adding-models.md"),
+    Path("docs/dataset-formats.md"),
+    Path("docs/adding-datasets.md"),
+    Path("docs/voc2012.md"),
     Path("docs/experiments.md"),
     Path("docs/reference-run.md"),
     Path("docs/tutorial/00-basics.md"),
@@ -82,6 +88,44 @@ def test_public_learning_docs_do_not_contain_agent_execution_plans() -> None:
         text = document.read_text().lower()
         assert "for agentic workers" not in text
         assert "required sub-skill" not in text
+
+
+def test_extension_guides_reference_runnable_names_and_factories() -> None:
+    combined = "\n".join(
+        (ROOT / path).read_text()
+        for path in CORE_DOCUMENTS
+        if path.name in {"model-zoo.md", "using-models.md", "adding-models.md", "dataset-formats.md", "adding-datasets.md"}
+    )
+    for value in (
+        "fcn_resnet50",
+        "lraspp_mobilenet_v3_large",
+        "smp_unetplusplus",
+        "examples.extensions.my_segmenter:create_model",
+        "examples.extensions.my_dataset:create_dataset",
+        "uv sync --extra dev --extra model-zoo",
+    ):
+        assert value in combined
+
+
+def test_environment_guides_cover_local_accelerators_and_kaggle_workflow() -> None:
+    for path in (ROOT / "docs/tutorial/01-environment.md", ROOT / "docs/tutorial/01-environment.zh-CN.md"):
+        text = path.read_text()
+        for value in (
+            "CUDA",
+            "MPS",
+            "Kaggle",
+            "/kaggle/input",
+            "/kaggle/working",
+            "--dry-run",
+            "--resume",
+            "segment evaluate",
+        ):
+            assert value in text
+
+
+def test_public_docs_avoid_artificial_completion_language() -> None:
+    for document in (ROOT / "docs").rglob("*.md"):
+        assert "毕业实验" not in document.read_text()
 
 
 def test_relative_markdown_links_resolve() -> None:
