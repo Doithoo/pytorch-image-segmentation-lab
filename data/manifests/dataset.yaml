@@ -1,0 +1,45 @@
+schema_version: 1
+provider: oxford_pet
+split_method: official_test_stratified_train_valid
+seed: 666
+data_dir: ../raw
+manifests:
+  train: train.csv
+  valid: valid.csv
+  test: test.csv
+split_counts:
+  train: 2941
+  valid: 739
+  test: 3669
+manifest_sha256:
+  train: f7e7af12141c01b6297c6bbc935a536a90023f80f1c57297e5477e4b7cd67371
+  valid: 872ed4b206b576a1c0582c7ec8add1b782e2cff68624ebd8901c6b64a1a5897d
+  test: 619642b927ecd138e3bc068340b5c30231ea705e48d27420cc9d2e20034b757c
+label_schema:
+  classes:
+  - id: 0
+    name: background
+    color: [32, 32, 32]
+  - id: 1
+    name: pet
+    color: [46, 204, 113]
+  ignore_index: 255
+label_schema_sha256: f75db49d825cd72ad282f34bb1edc1e663d1152dc2704ad48a1d10731bd73519
+label_map:
+  1: 1
+  2: 0
+ignore_values: [3]
+audit:
+  exact_duplicate_audit: passed
+  unlisted_pair_count: 41
+  unlisted_pair_examples:
+  - Abyssinian_34
+  - Abyssinian_82
+  - Bombay_11
+  - Bombay_189
+  - Bombay_190
+  - Bombay_192
+  - Bombay_203
+  - Bombay_206
+  - Bombay_209
+  - Bombay_210

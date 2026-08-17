@@ -12,6 +12,8 @@ from image_segmenter.data import (
 )
 from image_segmenter.data.manifest import prepare_paired_manifests
 
+ROOT = Path(__file__).parents[1]
+
 
 def _schema() -> LabelSchema:
     return LabelSchema(
@@ -119,3 +121,13 @@ def test_paired_preparation_emits_dataset_metadata(paired_data: Path, tmp_path: 
     assert metadata.split_method == "random"
     assert metadata.split_counts == {"train": 8, "valid": 1, "test": 1}
     assert metadata.label_schema.num_classes == 2
+
+
+def test_tracked_oxford_manifests_have_current_metadata() -> None:
+    metadata = read_dataset_metadata(ROOT / "data/manifests/dataset.yaml")
+
+    assert metadata.provider == "oxford_pet"
+    assert metadata.split_method == "official_test_stratified_train_valid"
+    assert metadata.split_counts == {"train": 2941, "valid": 739, "test": 3669}
+    assert metadata.label_map == {1: 1, 2: 0}
+    assert metadata.ignore_values == (3,)
