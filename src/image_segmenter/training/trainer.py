@@ -192,7 +192,7 @@ class Trainer:
                 if metric_name not in valid_metrics:
                     raise ValueError(f"train.best_metric is not available for this schema: {metric_name}")
                 valid_score = float(valid_metrics[metric_name])
-                improved = math.isfinite(valid_score) and valid_score > best_metric
+                improved = math.isfinite(valid_score) and (not math.isfinite(best_metric) or valid_score > best_metric)
                 if improved or not (self.run_dir / "best.pt").exists():
                     best_metric = valid_score
                     save_checkpoint(

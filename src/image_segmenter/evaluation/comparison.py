@@ -164,9 +164,16 @@ def compare_runs(
     schema_hashes = {str(run.metadata.get("label_schema_sha256", "")) for run in runs}
     if "" in schema_hashes:
         raise ValueError("label schema hash is missing from one or more runs")
-    comparable = len(schema_hashes) == 1
-    if not comparable and not allow_different_schemas:
+    manifest_hashes = {str(run.metadata.get("manifest_sha256", "")) for run in runs}
+    if "" in manifest_hashes:
+        raise ValueError("manifest hashes are missing from one or more runs")
+    schemas_match = len(schema_hashes) == 1
+    manifests_match = len(manifest_hashes) == 1
+    comparable = schemas_match and manifests_match
+    if not schemas_match and not allow_different_schemas:
         raise ValueError("run label schemas differ; pass --allow-different-schemas to inspect them")
+    if schemas_match and not manifests_match and not allow_different_schemas:
+        raise ValueError("run manifest hashes differ; pass --allow-different-schemas to inspect them")
 
     lower_is_better = "loss" in metric.lower()
     rows = [_comparison_row(run, metric, lower_is_better=lower_is_better) for run in runs]

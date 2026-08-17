@@ -34,6 +34,7 @@ def _write_run(
         "schema_version": 1,
         "model": {"name": model, "provider": "test", "factory": None},
         "label_schema_sha256": schema_hash,
+        "manifest_sha256": {"train": "train-hash", "valid": "valid-hash"},
         "parameter_count": 100,
         "trainable_parameter_count": 100,
         "total_training_seconds": 2.5,

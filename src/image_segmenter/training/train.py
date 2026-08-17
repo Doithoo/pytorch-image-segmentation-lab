@@ -302,6 +302,8 @@ def train_from_config(
         checkpoint_path = Path(resume).resolve()
         if run_dir.resolve() != checkpoint_path.parent:
             raise ValueError("resume checkpoint does not belong to the configured run directory")
+        if checkpoint_path.name != "last.pt":
+            raise ValueError("resume requires the run's last.pt checkpoint")
         checkpoint = load_checkpoint(checkpoint_path)
         _validate_resume(checkpoint, config, manifest_checksums, label_schema.to_dict())
         completed_epoch, best_metric = restore_training_state(checkpoint, model, optimizer, scheduler, precision)
