@@ -47,6 +47,11 @@ def test_wheel_declares_typed_package_and_all_reference_configs() -> None:
         "reference_unet.yaml",
         "deeplabv3_resnet50.yaml",
         "voc2012.yaml",
+        "fcn_resnet50.yaml",
+        "lraspp_mobilenet.yaml",
+        "smp_unetplusplus.yaml",
+        "custom_model_example.yaml",
+        "custom_dataset_example.yaml",
     }
 
 

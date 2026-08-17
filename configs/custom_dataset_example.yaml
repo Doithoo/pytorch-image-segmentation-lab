@@ -1,0 +1,28 @@
+config_version: 2
+data:
+  name: custom_synthetic
+  factory: examples.extensions.my_dataset:create_dataset
+  params:
+    length: 8
+    source_size: 48
+  data_dir: data/custom
+  manifest_dir: data/custom-manifests
+  image_size: 64
+  horizontal_flip: 0.0
+  label_map: {0: 0, 1: 1, 2: 2}
+  ignore_values: [255]
+model:
+  name: unet_small
+  expected_num_classes: 3
+  pretrained: false
+  params:
+    base_channels: 8
+loss:
+  ignore_index: 255
+train:
+  batch_size: 2
+  epochs: 1
+  best_metric: mean_iou
+device: cpu
+output_dir: artifacts
+run_name: custom-dataset-example

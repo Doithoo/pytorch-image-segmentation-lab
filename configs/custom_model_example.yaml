@@ -1,0 +1,19 @@
+config_version: 2
+data:
+  name: oxford_pet
+  manifest_dir: data/manifests
+  image_size: 128
+model:
+  name: custom_direct_logits
+  factory: examples.extensions.my_segmenter:create_model
+  expected_num_classes: 2
+  pretrained: false
+  params:
+    width: 12
+train:
+  batch_size: 4
+  epochs: 2
+  best_metric: class_iou:pet
+device: auto
+output_dir: artifacts
+run_name: custom-model-example

@@ -1,0 +1,20 @@
+config_version: 2
+data:
+  name: oxford_pet
+  manifest_dir: data/manifests
+  image_size: 256
+model:
+  name: smp_unetplusplus
+  expected_num_classes: 2
+  pretrained: false
+  params:
+    encoder_name: resnet18
+    encoder_weights: null
+train:
+  batch_size: 4
+  epochs: 2
+  lr: 0.0001
+  best_metric: class_iou:pet
+device: auto
+output_dir: artifacts
+run_name: smp-unetplusplus-offline
