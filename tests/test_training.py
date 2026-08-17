@@ -72,6 +72,10 @@ def test_fit_writes_best_last_metrics_and_resumes(paired_data: Path, tmp_path: P
     assert run_metadata["label_schema_sha256"]
     assert run_metadata["selected_metric"] == "class_iou:pet"
     assert run_metadata["total_training_seconds"] >= 0
+    assert len(run_metadata["fit_history"]) == 1
+    assert run_metadata["fit_history"][0]["device"] == "cpu"
+    assert run_metadata["fit_history"][0]["start_epoch"] == 1
+    assert run_metadata["fit_history"][0]["completed_epoch"] == 1
     with (run_dir / "metrics.csv").open(newline="") as handle:
         row = next(csv.DictReader(handle))
     assert float(row["epoch_duration_seconds"]) >= 0
@@ -81,6 +85,30 @@ def test_fit_writes_best_last_metrics_and_resumes(paired_data: Path, tmp_path: P
     train_from_config(cfg, resume=run_dir / "last.pt")
     assert (run_dir / "metrics.csv").read_text().count("\n") == 3
     assert load_checkpoint(run_dir / "last.pt")["epoch"] == 2
+    resumed_metadata = yaml.safe_load((run_dir / "run.yaml").read_text())
+    assert [event["start_epoch"] for event in resumed_metadata["fit_history"]] == [1, 2]
+    assert [event["completed_epoch"] for event in resumed_metadata["fit_history"]] == [1, 2]
+
+
+def test_resume_discards_metrics_ahead_of_last_checkpoint(paired_data: Path, tmp_path: Path) -> None:
+    cfg = _config(paired_data, tmp_path)
+    run_dir = train_from_config(cfg)
+    metrics_path = run_dir / "metrics.csv"
+    with metrics_path.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+        fieldnames = list(rows[0])
+    interrupted_row = dict(rows[-1])
+    interrupted_row["epoch"] = "2"
+    with metrics_path.open("a", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+        writer.writerow(interrupted_row)
+
+    cfg.train.epochs = 2
+    train_from_config(cfg, resume=run_dir / "last.pt")
+
+    with metrics_path.open(newline="") as handle:
+        resumed_rows = list(csv.DictReader(handle))
+    assert [int(row["epoch"]) for row in resumed_rows] == [1, 2]
 
 
 def test_existing_run_requires_resume(paired_data: Path, tmp_path: Path) -> None:

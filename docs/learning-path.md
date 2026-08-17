@@ -70,9 +70,11 @@ uv run segment train --config configs/learning_minimal.yaml \
 ```
 
 Inspect `config.yaml`, `metrics.csv`, `best.pt`, `last.pt`, and `run.yaml` in
-that order. Two epochs are a workflow check, not a competitive result. Explain
-why the checkpoint with the highest validation pet IoU may differ from the last
-epoch.
+that order. The top-level device in `run.yaml` describes the initial process;
+`fit_history` records the device, epoch range, and duration of each original or
+resumed training call. Two epochs are a workflow check, not a competitive
+result. Explain why the checkpoint with the highest validation pet IoU may
+differ from the last epoch.
 
 ## 5. Return from metrics to images
 

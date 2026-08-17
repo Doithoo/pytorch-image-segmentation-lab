@@ -74,6 +74,13 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> Non
             )
 
 
+def _clear_managed_visuals(output_dir: Path) -> None:
+    for folder in ("sample_overlays", "worst_cases"):
+        for image in (output_dir / folder).glob("*.png"):
+            image.unlink()
+    (output_dir / "loss_curve.png").unlink(missing_ok=True)
+
+
 def _render_samples(
     output_dir: Path,
     folder: str,
@@ -231,6 +238,7 @@ def evaluate_checkpoint(
     }
     destination = Path(output_dir) if output_dir is not None else checkpoint_path.parent / "evaluation"
     destination.mkdir(parents=True, exist_ok=True)
+    _clear_managed_visuals(destination)
     (destination / "metrics.json").write_text(
         json.dumps(serializable_metrics(summary), indent=2, sort_keys=True, allow_nan=False) + "\n"
     )

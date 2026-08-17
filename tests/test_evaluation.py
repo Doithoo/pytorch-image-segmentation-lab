@@ -49,3 +49,26 @@ def test_evaluation_records_relative_checkpoint_path(trained_run: dict[str, Path
 
     metrics = json.loads((output / "metrics.json").read_text())
     assert metrics["checkpoint"] == relative_checkpoint.as_posix()
+
+
+def test_evaluation_removes_stale_visual_outputs(trained_run: dict[str, Path], tmp_path: Path) -> None:
+    output = tmp_path / "evaluation"
+    for folder in ("sample_overlays", "worst_cases"):
+        destination = output / folder
+        destination.mkdir(parents=True)
+        (destination / "stale.png").write_bytes(b"stale")
+    (output / "loss_curve.png").write_bytes(b"stale")
+
+    evaluate_checkpoint(
+        trained_run["checkpoint"],
+        split="valid",
+        device="cpu",
+        output_dir=output,
+        sample_limit=0,
+        error_limit=0,
+        plot=False,
+    )
+
+    assert not list((output / "sample_overlays").glob("*.png"))
+    assert not list((output / "worst_cases").glob("*.png"))
+    assert not (output / "loss_curve.png").exists()

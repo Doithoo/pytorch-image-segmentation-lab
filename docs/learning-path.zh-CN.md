@@ -111,7 +111,8 @@ uv run segment train --config configs/learning_minimal.yaml \
 1. `config.yaml`：确认最终配置，不要只相信命令历史。
 2. `metrics.csv`：比较 train loss、valid loss 和 validation pet IoU。
 3. `best.pt` 与 `last.pt`：确认最佳验证状态不一定是最后一轮。
-4. `run.yaml`：记录设备、版本、revision 和 manifest 哈希。
+4. `run.yaml`：顶层设备和版本描述首次运行，`fit_history` 分别记录每次初始或续训调用的
+   设备、epoch 范围和耗时；从 Mac 切到 Kaggle 等场景应以这里的分段记录为准。
 
 两轮结果不一定很好。这个阶段的目标是得到一套可以检查的真实产物，而不是追逐高分。
 训练 loss 降低但验证 IoU 不变，可能只是模型更适应了训练样本；先看预测，再决定是否
