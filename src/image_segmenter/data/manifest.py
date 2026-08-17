@@ -63,6 +63,26 @@ class ManifestError(ValueError):
     """Raised after all invalid dataset samples have been collected."""
 
 
+def _audit_exact_duplicates(rows: Sequence[Mapping[str, object]], root: Path) -> None:
+    """Reject identical image/mask content appearing in different splits."""
+    seen: dict[tuple[str, str], str] = {}
+    for row in rows:
+        image_path = Path(str(row["image_path"]))
+        mask_path = Path(str(row["mask_path"]))
+        if not image_path.is_absolute():
+            image_path = (root / image_path).resolve()
+        if not mask_path.is_absolute():
+            mask_path = (root / mask_path).resolve()
+        key = (_sha256(image_path), _sha256(mask_path))
+        sample_id = str(row["sample_id"])
+        duplicate_of = seen.get(key)
+        if duplicate_of is not None and duplicate_of != sample_id:
+            raise ManifestError(f"exact duplicate of {duplicate_of}: {sample_id}")
+        if duplicate_of == sample_id:
+            continue
+        seen[key] = sample_id
+
+
 def _indexed_files(root: Path, suffixes: set[str]) -> tuple[dict[str, Path], list[dict[str, str]]]:
     indexed: dict[str, Path] = {}
     invalid: list[dict[str, str]] = []
@@ -251,6 +271,7 @@ def _write_manifests(
     audit: dict[str, object] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
+    all_rows: list[dict[str, object]] = []
     for split in ("train", "valid", "test"):
         rows = [
             asdict(
@@ -267,9 +288,11 @@ def _write_manifests(
             )
             for sample, breed, source_split in split_items[split]
         ]
+        all_rows.extend(rows)
         path = output / f"{split}.csv"
         _write_dict_rows(path, MANIFEST_FIELDS, rows)
         paths[split] = path
+    _audit_exact_duplicates(all_rows, output)
     counts = {split: len(items) for split, items in split_items.items()}
     _write_metadata(output, source, dataset_type, seed, label_map, ignore_values, paths, counts, audit)
     return paths

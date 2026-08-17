@@ -15,6 +15,7 @@ from .manifest import (
     MANIFEST_FIELDS,
     ManifestError,
     ManifestRow,
+    _audit_exact_duplicates,
     _relative_path,
     _validate_source,
     _write_dict_rows,
@@ -114,8 +115,11 @@ def _write_rows(
     label_map: dict[int, int],
     ignore_values: set[int],
     label_schema: LabelSchema | None = None,
+    audit: dict[str, object] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
+    all_rows = [row for split in ("train", "valid", "test") for row in rows_by_split.get(split, [])]
+    _audit_exact_duplicates(all_rows, output)
     for split in ("train", "valid", "test"):
         if not rows_by_split.get(split):
             raise ManifestError(f"provider produced an empty split: {split}")
@@ -135,6 +139,7 @@ def _write_rows(
         provider_name=provider,
         split_method_name=split_method,
         label_schema=label_schema,
+        audit=audit,
     )
     return paths
 

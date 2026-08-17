@@ -151,4 +151,5 @@ def prepare_voc2012_provider(**kwargs: Any) -> dict[str, Path]:
         label_map={class_id: class_id for class_id in range(21)},
         ignore_values={255},
         label_schema=VOC_SCHEMA,
+        audit={"split_reuse": "valid"} if params.get("test_policy") == "use_valid" else None,
     )

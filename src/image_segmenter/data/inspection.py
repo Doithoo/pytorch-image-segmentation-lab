@@ -9,7 +9,6 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..evaluation.visualization import colorize_mask, prediction_overlay
 from .masks import MaskDecoder
 from .metadata import PreparedDatasetMetadata, read_dataset_metadata
 from .schema import ClassDefinition, LabelSchema
@@ -68,6 +67,8 @@ def create_dataset_preview(
     limit: int = 4,
 ) -> Path:
     """Render image, raw mask, mapped mask, and overlay panels."""
+    from ..evaluation.visualization import colorize_mask, prediction_overlay
+
     if limit <= 0:
         raise ValueError("limit must be positive")
     manifest_path = Path(manifest).resolve()

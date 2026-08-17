@@ -1,4 +1,4 @@
-# 三份可直接运行的配置
+# 可直接运行的配置
 
 [English](README.md) | [配置参考](../docs/config-reference.zh-CN.md)
 
@@ -10,6 +10,9 @@
 | `learning_minimal.yaml` | 第一次跑通 | 128 px、最多 256/64/64 样本、两轮、CE、小 U-Net |
 | `reference_unet.yaml` | 完整手写模型实验 | 256 px、25 轮、base 32、CE+Dice、cosine |
 | `deeplabv3_resnet50.yaml` | 进阶方案对照 | 预训练 DeepLabV3、batch 4、15 轮 |
+| `fcn_resnet50.yaml` / `lraspp_mobilenet.yaml` | torchvision 起点 | 不下载权重的模型切换 |
+| `smp_unetplusplus.yaml` | 可选模型 | 需要 `model-zoo` extra，encoder 权重为 null |
+| `custom_model_example.yaml` / `custom_dataset_example.yaml` | 扩展边界 | 外部 model/Dataset 工厂 |
 
 ```bash
 uv run segment show-config --config configs/learning_minimal.yaml

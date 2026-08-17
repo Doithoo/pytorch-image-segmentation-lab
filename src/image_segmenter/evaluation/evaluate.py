@@ -14,7 +14,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 
 from ..config import ExperimentConfig, config_from_dict
-from ..data import LabelSchema, SegmentationDataset, build_transform, read_dataset_metadata
+from ..data import LabelSchema, SegmentationDataset, build_transform, load_external_datasets, read_dataset_metadata
 from ..models import create_model
 from ..training.checkpoint import checkpoint_label_schema, load_checkpoint
 from ..training.train import resolve_device
@@ -164,15 +164,31 @@ def evaluate_checkpoint(
     if metadata.label_schema != label_schema:
         raise ValueError("checkpoint label schema does not match prepared dataset metadata")
     manifest = Path(config.data.manifest_dir) / metadata.manifests[split]
-    dataset = SegmentationDataset(
-        manifest,
-        build_transform(config.data, training=False, ignore_index=config.loss.ignore_index),
-        metadata.label_map,
-        list(metadata.ignore_values),
-        label_schema.ignore_index,
-        _sample_limit(config, split),
-        label_schema=label_schema,
-    )
+    if config.data.factory is not None:
+        datasets = load_external_datasets(
+            config.data.factory,
+            data_dir=config.data.data_dir,
+            manifest_dir=Path(config.data.manifest_dir),
+            transforms={
+                item: build_transform(config.data, training=False, ignore_index=config.loss.ignore_index)
+                for item in ("train", "valid", "test")
+            },
+            label_schema=label_schema,
+            params=config.data.params,
+        )
+        dataset = datasets[split]
+        renderable = False
+    else:
+        dataset = SegmentationDataset(
+            manifest,
+            build_transform(config.data, training=False, ignore_index=config.loss.ignore_index),
+            metadata.label_map,
+            list(metadata.ignore_values),
+            label_schema.ignore_index,
+            _sample_limit(config, split),
+            label_schema=label_schema,
+        )
+        renderable = True
     loader = DataLoader(
         dataset,
         batch_size=config.train.batch_size,
@@ -232,8 +248,11 @@ def evaluate_checkpoint(
         key=lambda row: float(row["mean_iou"]),
     )
     worst_ids = [str(row["sample_id"]) for row in worst_rows[:error_limit]]
-    _render_samples(destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config, label_schema)
-    _render_samples(destination, "worst_cases", worst_ids, dataset, model, runtime_device, config, label_schema)
+    if renderable:
+        _render_samples(
+            destination, "sample_overlays", sample_ids, dataset, model, runtime_device, config, label_schema
+        )
+        _render_samples(destination, "worst_cases", worst_ids, dataset, model, runtime_device, config, label_schema)
     if plot:
         plot_loss_curve(checkpoint_path.parent / "metrics.csv", destination / "loss_curve.png")
     return destination

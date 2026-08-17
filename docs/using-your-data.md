@@ -2,7 +2,7 @@
 
 [简体中文](using-your-data.zh-CN.md) | [Back to README](../README.md)
 
-The generic path supports binary, single-channel, same-stem image/mask pairs.
+The generic path supports same-stem image/mask pairs and contiguous multiclass labels.
 Validate a small bounded copy before a full run.
 
 ```text

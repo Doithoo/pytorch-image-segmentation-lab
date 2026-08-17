@@ -11,9 +11,11 @@
 | --- | --- | --- |
 | `data_dir` | 原始数据根目录 | Oxford 使用 `data/raw` |
 | `manifest_dir` | train/valid/test CSV 目录 | 每个新数据集使用独立目录 |
-| `image_size` | 网络方形输入边长，需为 16 的倍数 | 从 128 开始；增大前先看内存 |
+| `image_size` | 网络输入尺寸 | U-Net 每个维度需为 16 的倍数；先查看模型限制 |
+| `resize_mode` | `stretch` 或 `letterbox` | 长宽比敏感的数据优先尝试 `letterbox` |
+| `crop_size` | 训练时的成对裁剪尺寸 | 必须不大于 `image_size` |
 | `normalize_mean/std` | RGB 归一化 | 与训练和推理保持一致 |
-| `label_map` | 原始像素值到类别 0/1 | 先打印原始 mask 唯一值 |
+| `label_map` | 原始像素值到从 0 开始的连续类别 ID | 先打印原始 mask 唯一值 |
 | `ignore_values` | 不参与 loss/指标的原始值 | Oxford 为 `[3]` |
 | `split_ratios` | 通用数据 train/valid/test 比例 | 三项和为 1，且实际样本不能产生空 split |
 | `seed` | 通用切分或 Oxford trainval 切分种子 | 比较实验时固定 |
@@ -29,10 +31,10 @@ padding/crop 模式。
 
 | 字段 | 含义 | 限制/建议 |
 | --- | --- | --- |
-| `name` | `unet_small` 或 `deeplabv3_resnet50` | 第一次用 U-Net |
+| `name` | `list-models` 中的注册模型名 | 第一次用 U-Net；模型列表见[模型列表](model-zoo.zh-CN.md) |
 | `in_channels` | 输入通道数 | 当前 RGB 流程必须为 3 |
-| `num_classes` | 输出类别数 | 当前二类流程必须为 2 |
-| `base_channels` | U-Net 起始宽度 | 8/16 适合练习，32 用于参考运行 |
+| `expected_num_classes` | 与 `dataset.yaml` 标签模式核对的类别数 | 多分类时按元数据填写 |
+| `params.base_channels` | U-Net 起始宽度 | 8/16 适合练习，32 用于参考运行 |
 | `pretrained` | 是否加载预训练权重 | U-Net 必须 false；DeepLab true 会联网 |
 
 `base_channels` 也传入统一模型工厂，但 DeepLab 不使用它。预训练与随机初始化对比时要
