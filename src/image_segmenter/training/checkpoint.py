@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import pickle
 import random
 import subprocess
 from pathlib import Path
@@ -20,7 +21,8 @@ from ..config import ExperimentConfig, to_dict
 from ..data import ClassDefinition, LabelSchema
 from .precision import PrecisionController
 
-CHECKPOINT_SCHEMA_VERSION = 1
+CHECKPOINT_SCHEMA_VERSION = 2
+LEGACY_CHECKPOINT_SCHEMA_VERSION = 1
 CLASS_NAMES = ("background", "pet")
 REQUIRED_KEYS = {
     "schema_version",
@@ -54,6 +56,49 @@ def git_revision() -> str | None:
     return result.stdout.strip() or None
 
 
+def _safe_numpy_rng_state() -> dict[str, Any]:
+    """Encode NumPy's RNG state using only weights-only-safe values."""
+    state = np.random.get_state()
+    return {
+        "algorithm": state[0],
+        "state": torch.from_numpy(state[1].copy()),
+        "position": int(state[2]),
+        "has_gaussian": int(state[3]),
+        "cached_gaussian": float(state[4]),
+    }
+
+
+def _restore_numpy_rng_state(state: object) -> None:
+    if not isinstance(state, dict):
+        raise ValueError("checkpoint NumPy RNG state is invalid")
+    raw_state = state.get("state")
+    if not isinstance(raw_state, torch.Tensor):
+        raise ValueError("checkpoint NumPy RNG state array is invalid")
+    np.random.set_state(
+        (
+            str(state["algorithm"]),
+            raw_state.cpu().numpy().astype(np.uint32, copy=False),
+            int(state["position"]),
+            int(state["has_gaussian"]),
+            float(state["cached_gaussian"]),
+        )
+    )
+
+
+def _load_serialized_checkpoint(path: Path) -> dict[str, Any]:
+    """Load a checkpoint without executing arbitrary pickle payloads."""
+    try:
+        loaded = torch.load(path, map_location="cpu", weights_only=True)
+    except (RuntimeError, pickle.UnpicklingError) as exc:
+        raise ValueError(
+            "checkpoint is not weights-only safe; it may be a legacy or untrusted file. "
+            "Recreate it with the current package before loading"
+        ) from exc
+    if not isinstance(loaded, dict):
+        raise ValueError("checkpoint root must be a mapping")
+    return loaded
+
+
 def save_checkpoint(
     path: str | Path,
     model: nn.Module,
@@ -72,7 +117,7 @@ def save_checkpoint(
     output.parent.mkdir(parents=True, exist_ok=True)
     rng_state: dict[str, Any] = {
         "python": random.getstate(),
-        "numpy": np.random.get_state(),
+        "numpy": _safe_numpy_rng_state(),
         "torch": torch.get_rng_state(),
     }
     if torch.cuda.is_available():
@@ -116,14 +161,17 @@ def save_checkpoint(
 
 
 def load_checkpoint(path: str | Path) -> dict[str, Any]:
-    """Load and validate a schema-one checkpoint on CPU."""
+    """Load and validate a safe schema-two checkpoint on CPU."""
     checkpoint_path = Path(path)
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"checkpoint not found: {checkpoint_path}")
-    loaded = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    if not isinstance(loaded, dict):
-        raise ValueError("checkpoint root must be a mapping")
+    loaded = _load_serialized_checkpoint(checkpoint_path)
     schema = loaded.get("schema_version")
+    if schema == LEGACY_CHECKPOINT_SCHEMA_VERSION:
+        raise ValueError(
+            "legacy schema-one checkpoint is not weights-only safe; recreate it with a trusted older environment "
+            "or retrain with the current package"
+        )
     if schema != CHECKPOINT_SCHEMA_VERSION:
         raise ValueError(f"checkpoint schema {schema} is not supported; expected {CHECKPOINT_SCHEMA_VERSION}")
     missing = sorted(REQUIRED_KEYS - set(loaded))
@@ -176,7 +224,7 @@ def restore_training_state(
         precision.load_state_dict(checkpoint.get("precision_state"))
     rng_state = checkpoint["rng_state"]
     random.setstate(rng_state["python"])
-    np.random.set_state(rng_state["numpy"])
+    _restore_numpy_rng_state(rng_state["numpy"])
     torch.set_rng_state(rng_state["torch"])
     if "cuda" in rng_state and torch.cuda.is_available():
         torch.cuda.set_rng_state_all(rng_state["cuda"])

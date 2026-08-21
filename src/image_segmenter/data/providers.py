@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from PIL import Image, UnidentifiedImageError
 
 from .manifest import (
@@ -17,6 +18,7 @@ from .manifest import (
     ManifestRow,
     _audit_exact_duplicates,
     _relative_path,
+    _schema_from_label_map,
     _validate_source,
     _write_dict_rows,
     _write_manifests,
@@ -53,7 +55,7 @@ def prepare_paired_provider(**kwargs: Any) -> dict[str, Path]:
     seed = kwargs["seed"]
     label_map = kwargs["label_map"]
     ignore_values = kwargs["ignore_values"]
-    samples = _validate_source(source, output, label_map, ignore_values)
+    samples = _validate_source(source, output, label_map, ignore_values, kwargs["ignore_index"])
     pattern = re.compile(str(group_regex))
     groups: dict[str, list[Any]] = {}
     for sample in samples:
@@ -90,6 +92,8 @@ def prepare_paired_provider(**kwargs: Any) -> dict[str, Path]:
         label_map,
         ignore_values,
         {"group_regex": str(group_regex), "group_count": len(groups)},
+        group_ids={sample.sample_id: group_id for group_id, samples in groups.items() for sample in samples},
+        ignore_index=kwargs["ignore_index"],
     )
 
 
@@ -116,6 +120,7 @@ def _write_rows(
     ignore_values: set[int],
     label_schema: LabelSchema | None = None,
     audit: dict[str, object] | None = None,
+    ignore_index: int = 255,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     all_rows = [row for split in ("train", "valid", "test") for row in rows_by_split.get(split, [])]
@@ -140,6 +145,7 @@ def _write_rows(
         split_method_name=split_method,
         label_schema=label_schema,
         audit=audit,
+        ignore_index=ignore_index,
     )
     return paths
 
@@ -155,7 +161,13 @@ def prepare_split_folders_provider(**kwargs: Any) -> dict[str, Path]:
     rows_by_split: dict[str, list[dict[str, object]]] = {}
     for split in ("train", "valid", "test"):
         split_root = source / split
-        samples = _validate_source(split_root, output, kwargs["label_map"], kwargs["ignore_values"])
+        samples = _validate_source(
+            split_root,
+            output,
+            kwargs["label_map"],
+            kwargs["ignore_values"],
+            kwargs["ignore_index"],
+        )
         rows: list[dict[str, object]] = []
         for sample in samples:
             group = _group_id(sample.sample_id, pattern)
@@ -187,6 +199,7 @@ def prepare_split_folders_provider(**kwargs: Any) -> dict[str, Path]:
         seed=kwargs["seed"],
         label_map=kwargs["label_map"],
         ignore_values=kwargs["ignore_values"],
+        ignore_index=kwargs["ignore_index"],
     )
 
 
@@ -207,6 +220,7 @@ def prepare_manifest_provider(**kwargs: Any) -> dict[str, Path]:
     rows_by_split: dict[str, list[dict[str, object]]] = {}
     group_splits: dict[str, str] = {}
     seen_samples: set[str] = set()
+    schema = _schema_from_label_map(kwargs["label_map"], kwargs["ignore_index"])
     for split in ("train", "valid", "test"):
         input_path = Path(str(manifests[split])).resolve()
         if not input_path.is_file():
@@ -236,6 +250,15 @@ def prepare_manifest_provider(**kwargs: Any) -> dict[str, Path]:
                     mask.load()
                     if mask.size != (width, height):
                         raise ManifestError(f"size mismatch for {sample_id}: image={(width, height)}, mask={mask.size}")
+                    mask_array = np.asarray(mask)
+                if mask_array.ndim != 2:
+                    raise ManifestError(f"mask must be single-channel for {sample_id}, got shape {mask_array.shape}")
+                values = {int(value) for value in np.unique(mask_array)}
+                unknown_values = sorted(values - set(kwargs["label_map"]) - set(kwargs["ignore_values"]))
+                if unknown_values:
+                    raise ManifestError(f"mask {sample_id} contains unknown values: {unknown_values}")
+                if not values & set(kwargs["label_map"]):
+                    raise ManifestError(f"mask {sample_id} has no trainable pixels")
             except (OSError, UnidentifiedImageError) as exc:
                 raise ManifestError(f"invalid files for {sample_id}: {exc}") from exc
             rows.append(
@@ -262,4 +285,6 @@ def prepare_manifest_provider(**kwargs: Any) -> dict[str, Path]:
         seed=None,
         label_map=kwargs["label_map"],
         ignore_values=kwargs["ignore_values"],
+        label_schema=schema,
+        ignore_index=kwargs["ignore_index"],
     )

@@ -24,8 +24,9 @@
 | `horizontal_flip` | 训练时水平翻转概率 | 先用 0.5；方向有语义时关闭 |
 | `max_*_samples` | 各 split 的样本上限 | 入门配置用于缩短运行；正式结果设 null |
 
-图片和掩码都会缩放为 `image_size x image_size`；图片双线性、掩码最近邻。当前配置没有
-padding/crop 模式。
+`stretch` 会直接缩放到 `image_size`；`letterbox` 保持长宽比，并以 ignore index 填充
+mask 边缘。`crop_size` 只在训练时执行成对随机裁剪。图片使用双线性插值，掩码始终使用
+最近邻插值。
 
 ## model
 
@@ -74,8 +75,7 @@ scheduler 的运行可以增加总轮数继续训练。
 | `device` | `auto`、`cpu`、`cuda` 或 `mps` |
 | `output_dir` | 所有本地运行产物的根目录 |
 | `run_name` | 子目录名；null 时自动生成 |
-| `log_level` | 可填 `debug/info/warning/error/critical`；当前只解析和校验，尚不改变 CLI 输出 |
+| `log_level` | `debug/info` 显示每轮进度；`warning/error/critical` 仅保留命令结果和错误 |
 
 每个实验使用独立 `run_name`。已含 checkpoint 的目录不会被新训练覆盖；恢复时 checkpoint
-必须属于目标运行目录。`log_level` 是为配置兼容保留的字段，不应把它当作当前可用的
-日志开关。
+必须属于目标运行目录。

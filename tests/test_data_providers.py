@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from image_segmenter.data import ManifestError, prepare_dataset, read_dataset_metadata
 
@@ -28,6 +29,24 @@ def test_paired_provider_preserves_existing_wrapper_behavior(paired_data: Path, 
     assert read_dataset_metadata(tmp_path / "prepared" / "dataset.yaml").provider == "paired_masks"
 
 
+def test_paired_provider_prepares_multiclass_schema_and_custom_ignore_index(paired_data: Path, tmp_path: Path) -> None:
+    prepare_dataset(
+        "paired_masks",
+        data_dir=paired_data,
+        manifest_dir=tmp_path / "prepared",
+        split_ratios=[0.8, 0.1, 0.1],
+        seed=7,
+        label_map={1: 1, 2: 0, 3: 2},
+        ignore_values=set(),
+        ignore_index=254,
+        params={},
+    )
+
+    metadata = read_dataset_metadata(tmp_path / "prepared" / "dataset.yaml")
+    assert metadata.label_schema.num_classes == 3
+    assert metadata.label_schema.ignore_index == 254
+
+
 def test_paired_provider_keeps_groups_in_one_split(paired_data: Path, tmp_path: Path) -> None:
     source = tmp_path / "grouped"
     for index, image in enumerate(sorted((paired_data / "images").glob("*.png"))):
@@ -50,8 +69,12 @@ def test_paired_provider_keeps_groups_in_one_split(paired_data: Path, tmp_path: 
 
     group_splits: dict[str, str] = {}
     for split, path in paths.items():
-        for sample_id in _read_ids(path):
-            group = sample_id.split("/", 1)[0]
+        with path.open(newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        assert all(row["group_id"] for row in rows)
+        for row in rows:
+            group = row["sample_id"].split("/", 1)[0]
+            assert row["group_id"] == group
             assert group_splits.setdefault(group, split) == split
 
 
@@ -109,6 +132,39 @@ def test_manifest_provider_rejects_group_in_multiple_splits(paired_data: Path, t
             label_map={1: 1, 2: 0},
             ignore_values={3},
             params={"manifests": {split: str(source / f"{split}.csv") for split in ("train", "valid", "test")}},
+        )
+
+
+def test_manifest_provider_rejects_unknown_mask_values_during_preparation(paired_data: Path, tmp_path: Path) -> None:
+    source = tmp_path / "source-manifests"
+    source.mkdir()
+    images = sorted((paired_data / "images").glob("*.png"))
+    manifests: dict[str, str] = {}
+    for split, image in zip(("train", "valid", "test"), images, strict=False):
+        path = source / f"{split}.csv"
+        manifests[split] = str(path)
+        with path.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=("sample_id", "image_path", "mask_path"))
+            writer.writeheader()
+            writer.writerow(
+                {
+                    "sample_id": image.stem,
+                    "image_path": image,
+                    "mask_path": paired_data / "masks" / image.name,
+                }
+            )
+    Image.new("L", (32, 32), color=99).save(paired_data / "masks" / images[0].name)
+
+    with pytest.raises(ManifestError, match="unknown values.*99"):
+        prepare_dataset(
+            "manifest",
+            data_dir=paired_data,
+            manifest_dir=tmp_path / "prepared",
+            split_ratios=[0.8, 0.1, 0.1],
+            seed=7,
+            label_map={1: 1, 2: 0},
+            ignore_values={3},
+            params={"manifests": manifests},
         )
 
 

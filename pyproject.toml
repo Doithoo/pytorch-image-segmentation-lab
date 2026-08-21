@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77,<82"]
+requires = ["setuptools>=83,<85"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -22,22 +22,23 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "torch>=2.0,<3",
-    "torchvision>=0.15,<1",
+    "torch>=2.6,<3",
+    "torchvision>=0.21,<1",
     "numpy>=1.24,<3",
-    "pillow>=9,<12",
+    "pillow>=12.3,<13",
     "pyyaml>=6,<7",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7,<9",
+    "pytest>=9.0.3,<10",
     "ruff>=0.6,<1",
     "pre-commit>=3,<5",
     "build>=1.2,<2",
-    "twine>=5,<7",
+    "setuptools>=83,<85",
+    "twine>=5,<8",
     "matplotlib>=3.6,<4",
-    "mypy>=1.15,<2",
+    "mypy>=1.15,<3",
     "types-PyYAML>=6,<7",
     "tomli>=2,<3; python_version < '3.11'",
 ]
@@ -48,6 +49,7 @@ model-zoo = ["segmentation-models-pytorch>=0.5,<1"]
 Homepage = "https://github.com/Doithoo/pytorch-image-segmentation-lab"
 Repository = "https://github.com/Doithoo/pytorch-image-segmentation-lab"
 Documentation = "https://github.com/Doithoo/pytorch-image-segmentation-lab#readme"
+Source = "https://github.com/Doithoo/pytorch-image-segmentation-lab"
 Issues = "https://github.com/Doithoo/pytorch-image-segmentation-lab/issues"
 
 [project.scripts]

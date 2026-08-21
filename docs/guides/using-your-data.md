@@ -13,7 +13,13 @@ my-data/
 
 Print unique values from several raw masks. Put every possible raw value in
 `data.label_map` or `data.ignore_values`; unknown values fail instead of silently
-becoming background. Keep `loss.ignore_index` different from classes 0 and 1.
+becoming background. Keep `loss.ignore_index` different from every mapped class.
+For a three-class paired dataset, use a contiguous mapping such as
+`{0: 0, 128: 1, 255: 2}`, set `model.expected_num_classes: 3`, choose an unused
+`loss.ignore_index`, and select a general metric such as `train.best_metric:
+mean_iou`. Generated metadata uses `class_0`, `class_1`, and so on; use explicit
+metadata or a Dataset factory when domain names and fixed colors are required.
+
 
 Create a separate config and manifest directory, then prepare paired data:
 
@@ -32,9 +38,10 @@ Run one CPU batch before training:
 uv run segment train --config configs/my_data.yaml --dry-run --device cpu
 ```
 
-Check image, target, logits shapes; mapped values; and valid-pixel ratio. The
-built-in transform stretches pairs to a square. Aspect-ratio-sensitive domains
-may require a tested paired padding/cropping transform.
+Check image, target, and `[B,K,H,W]` logits shapes; mapped values; and valid-pixel
+ratio. The default `stretch` mode maps pairs directly to the configured shape.
+Use `resize_mode: letterbox` to preserve aspect ratio with ignored mask padding;
+optional `crop_size` applies a shared random training crop.
 
 Random image splitting is unsafe for related patients, video frames, bursts, or
 shared sources. Group those entities before assigning splits.

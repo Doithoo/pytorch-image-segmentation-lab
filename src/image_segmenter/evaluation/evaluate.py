@@ -170,6 +170,15 @@ def evaluate_checkpoint(
     metadata = read_dataset_metadata(Path(config.data.manifest_dir) / "dataset.yaml")
     if metadata.label_schema != label_schema:
         raise ValueError("checkpoint label schema does not match prepared dataset metadata")
+    expected_manifest_hash = saved.get("manifest_checksums", {}).get(split)
+    actual_manifest_hash = metadata.manifest_sha256.get(split)
+    if expected_manifest_hash is None:
+        raise ValueError(f"checkpoint does not record a manifest hash for the {split} split")
+    if expected_manifest_hash != actual_manifest_hash:
+        raise ValueError(
+            f"checkpoint manifest hash does not match the prepared {split} split; "
+            "restore the original manifest or use a matching checkpoint"
+        )
     manifest = Path(config.data.manifest_dir) / metadata.manifests[split]
     if config.data.factory is not None:
         datasets = load_external_datasets(
@@ -226,6 +235,8 @@ def evaluate_checkpoint(
             ):
                 per_image_rows.append({"sample_id": sample_id, **scores})
 
+    if not per_image_rows:
+        raise ValueError(f"split {split!r} contains no samples to evaluate")
     global_metrics = aggregate.compute()
     mean_ious = [float(row["mean_iou"]) for row in per_image_rows]
     mean_dices = [float(row["mean_dice"]) for row in per_image_rows]

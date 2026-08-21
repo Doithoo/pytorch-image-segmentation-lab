@@ -182,10 +182,13 @@ def train_from_config(
         )
     train_manifest = manifest_dir / metadata.manifests["train"]
     valid_manifest = manifest_dir / metadata.manifests["valid"]
-    for path in (train_manifest, valid_manifest):
+    for split in ("train", "valid", "test"):
+        path = manifest_dir / metadata.manifests[split]
         if not path.is_file():
             raise FileNotFoundError(f"manifest not found: {path}")
-    manifest_checksums = {"train": _sha256(train_manifest), "valid": _sha256(valid_manifest)}
+    manifest_checksums = {
+        split: _sha256(manifest_dir / metadata.manifests[split]) for split in ("train", "valid", "test")
+    }
 
     train_transform = build_transform(config.data, training=True, ignore_index=label_schema.ignore_index)
     valid_transform = build_transform(config.data, training=False, ignore_index=label_schema.ignore_index)

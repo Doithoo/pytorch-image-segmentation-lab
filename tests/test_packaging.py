@@ -97,6 +97,10 @@ def test_release_scaffolding_covers_ci_templates_and_local_check() -> None:
     assert (ROOT / ".github/ISSUE_TEMPLATE/bug.yml").is_file()
     assert (ROOT / ".github/ISSUE_TEMPLATE/learning-question.yml").is_file()
     assert (ROOT / ".github/pull_request_template.md").is_file()
+    assert (ROOT / ".github/dependabot.yml").is_file()
+    assert (ROOT / "SECURITY.md").is_file()
+    assert "actions/checkout@3d3c42e5" in workflow
+    assert "astral-sh/setup-uv@20cfd1bf" in workflow
     assert "model-zoo:" in workflow
     assert "uv sync --locked --extra dev --extra model-zoo" in workflow
     assert "pytest -m model_zoo" in workflow

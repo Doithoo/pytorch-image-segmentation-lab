@@ -82,6 +82,7 @@ def prepare_dataset(
     label_map: dict[int, int],
     ignore_values: set[int],
     params: dict[str, Any],
+    ignore_index: int = 255,
 ) -> dict[str, Path]:
     spec = get_dataset_spec(name)
     status = dataset_status(name)
@@ -94,6 +95,7 @@ def prepare_dataset(
         seed=seed,
         label_map=label_map,
         ignore_values=ignore_values,
+        ignore_index=ignore_index,
         params=params,
     )
 

@@ -95,6 +95,8 @@ def prepare_voc2012_provider(**kwargs: Any) -> dict[str, Path]:
     if unknown:
         raise ValueError(f"unknown dataset provider parameter: {unknown[0]}")
     kwargs.pop("split_ratios")
+    if kwargs["ignore_index"] != VOC_SCHEMA.ignore_index:
+        raise ValueError("VOC requires loss.ignore_index: 255")
     source = _voc_root(Path(kwargs["data_dir"]).resolve())
     output = Path(kwargs["manifest_dir"]).resolve()
     split_root = source / "ImageSets" / "Segmentation"
@@ -152,5 +154,6 @@ def prepare_voc2012_provider(**kwargs: Any) -> dict[str, Path]:
         label_map={class_id: class_id for class_id in range(21)},
         ignore_values={255},
         label_schema=VOC_SCHEMA,
+        ignore_index=VOC_SCHEMA.ignore_index,
         audit={"split_reuse": "valid"} if params.get("test_policy") == "use_valid" else None,
     )

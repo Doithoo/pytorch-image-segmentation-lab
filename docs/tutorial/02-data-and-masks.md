@@ -51,8 +51,9 @@ uv run python examples/02_paired_transform.py
 
 Sample a random flip once and apply it to both image and mask. Resize RGB with
 bilinear interpolation and class masks with nearest-neighbor interpolation.
-The built-in path stretches inputs to a square for a simple fixed-shape lesson;
-aspect-ratio-sensitive tasks may need padding or cropping.
+The default `stretch` mode maps pairs directly to a fixed shape. For
+aspect-ratio-sensitive data, use `resize_mode: letterbox`; mask padding receives
+the ignore index. Optional `crop_size` applies one shared random training crop.
 
 Preparation catches missing pairs, unreadable files, size mismatches,
 multi-channel masks, unknown values, exact duplicate pairs, and empty splits.

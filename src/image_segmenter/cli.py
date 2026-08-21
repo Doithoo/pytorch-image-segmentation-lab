@@ -91,6 +91,7 @@ def _prepare_data(args: argparse.Namespace) -> int:
         seed=config.data.seed,
         label_map=config.data.label_map,
         ignore_values=set(config.data.ignore_values),
+        ignore_index=config.loss.ignore_index,
         params=config.data.params,
     )
     for split in ("train", "valid", "test"):

@@ -102,9 +102,9 @@ uv run python examples/02_paired_transform.py
 | RGB image | bilinear + antialias | 连续颜色适合平滑 |
 | class mask | nearest-neighbor | 只能复制已有类别 ID |
 
-当前实现把不同长宽比统一拉伸为正方形，便于初学者追踪固定形状。它会改变物体比例；
-医学图像、文档或细长目标可能更适合 padding 或 crop。换数据时应把这项限制写进实验
-说明，而不是默认形变无影响。
+默认 `stretch` 会把不同长宽比统一拉伸到固定形状，便于初学者追踪张量，但会改变物体
+比例。长宽比敏感的数据可改用 `letterbox`，它保持比例并用 ignore index 填充掩码；训练
+还可设置 `crop_size` 做成对随机裁剪。无论哪种模式，图片与掩码必须共享同一组几何参数。
 
 ## 准备程序会检查什么
 

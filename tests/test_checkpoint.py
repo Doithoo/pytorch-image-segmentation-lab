@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ def test_checkpoint_restores_model_optimizer_and_metadata(tmp_path: Path) -> Non
         manifest_checksums={"train": "abc"},
     )
     loaded = load_checkpoint(path)
-    assert loaded["schema_version"] == 1
+    assert loaded["schema_version"] == 2
     assert loaded["epoch"] == 3
     assert loaded["best_metric"] == 0.6
     assert loaded["config"]["data"]["label_map"] == {1: 1, 2: 0}
@@ -81,9 +82,24 @@ def test_unknown_checkpoint_schema_is_rejected(tmp_path: Path) -> None:
 
 def test_incomplete_checkpoint_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "incomplete.pt"
-    torch.save({"schema_version": 1}, path)
+    torch.save({"schema_version": 2}, path)
     with pytest.raises(ValueError, match="missing required keys"):
         load_checkpoint(path)
+
+
+def test_untrusted_pickle_checkpoint_is_rejected_without_execution(tmp_path: Path) -> None:
+    marker = tmp_path / "executed"
+
+    class Malicious:
+        def __reduce__(self):
+            return os.system, (f"touch {marker}",)
+
+    path = tmp_path / "untrusted.pt"
+    torch.save(Malicious(), path)
+
+    with pytest.raises(ValueError, match="not weights-only safe"):
+        load_checkpoint(path)
+    assert not marker.exists()
 
 
 def test_effective_amp_checkpoint_requires_scaler_state(tmp_path: Path) -> None:

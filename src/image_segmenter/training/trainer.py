@@ -260,10 +260,11 @@ class Trainer:
                     label_schema=self.label_schema,
                     precision_state=self.precision.state_dict(),
                 )
-                print(
-                    f"epoch {epoch}/{self.config.train.epochs} "
-                    f"train_loss={float(train_metrics['loss']):.4f} "
-                    f"valid_{metric_name}={valid_score:.4f}"
-                )
+                if self.config.log_level in {"debug", "info"}:
+                    print(
+                        f"epoch {epoch}/{self.config.train.epochs} "
+                        f"train_loss={float(train_metrics['loss']):.4f} "
+                        f"valid_{metric_name}={valid_score:.4f}"
+                    )
         self._record_fit_runtime(time.monotonic() - fit_started, start_epoch)
         return self.run_dir

@@ -194,4 +194,5 @@ uv run twine check dist/*
 ```
 
 测试使用本地合成数据，不会下载 Oxford 数据集或预训练权重。提交修改前请阅读
-[贡献指南](CONTRIBUTING.zh-CN.md)。项目采用 [MIT License](LICENSE)。
+[贡献指南](CONTRIBUTING.zh-CN.md)；安全漏洞请按 [SECURITY.md](SECURITY.md) 私下报告，
+不要创建公开 issue。项目采用 [MIT License](LICENSE)。

@@ -40,9 +40,26 @@ loss:
   ignore_index: 254
 ```
 
-`ignore_index` 只需与训练类别 0/1 不同；即使数据没有忽略像素，也要保留一个不会与
+`ignore_index` 只需与所有训练类别不同；即使数据没有忽略像素，也要保留一个不会与
 类别冲突的值。每个可能出现的原始值必须进入 `label_map` 或 `ignore_values`，未知值会
 立即失败，而不是自动变成背景。
+
+三分类 paired mask 例如可使用：
+
+```yaml
+data:
+  label_map: {0: 0, 128: 1, 255: 2}
+  ignore_values: []
+model:
+  expected_num_classes: 3
+loss:
+  ignore_index: 254
+train:
+  best_metric: mean_iou
+```
+
+准备程序会为三类生成 `class_0`、`class_1`、`class_2` 标签模式。需要 `road`、`vehicle`
+等领域类名和固定颜色时，使用显式 dataset metadata 或 Dataset factory 提供 LabelSchema。
 
 ## 为新数据复制一份配置
 
@@ -97,16 +114,24 @@ sed -n '1,5p' data/my-manifests/train.csv
 uv run segment train --config configs/my_data.yaml --dry-run --device cpu
 ```
 
-确认输出：图片 `[B,3,H,W]`、mask `[B,H,W]`、logits `[B,2,H,W]`；mask values 只包含
-0、1 和你的 ignore index；valid pixel ratio 合理。
+确认输出：图片 `[B,3,H,W]`、mask `[B,H,W]`、logits `[B,K,H,W]`；其中 `K` 是
+`dataset.yaml` 的类别数。mask values 只包含从 0 开始的类别 ID 和你的 ignore index；
+valid pixel ratio 应合理。
 
-## 当前 resize 策略的限制
+## 选择 resize 策略
 
-图片和掩码会一起拉伸为 `image_size x image_size`。普通照片常可作为简单基线，但长宽比
-敏感的数据可能失真：细胞形态、道路宽度、文档字符或工业尺寸都可能受影响。
+默认 `stretch` 会把图片和掩码一起缩放到 `image_size`，适合作为简单基线，但可能改变细胞、
+道路、文档或工业目标的比例。长宽比敏感时改用：
 
-若形变不可接受，应在 `PairedTransform` 中实现并测试 padding/cropping，同时保证 image
-与 mask 使用相同几何参数，mask 仍用最近邻插值。记录最终预处理到 checkpoint。
+```yaml
+data:
+  resize_mode: letterbox
+  crop_size: null
+```
+
+`letterbox` 保持长宽比，并用 ignore index 填充 mask。也可设置 `crop_size` 做训练期成对随机
+裁剪；image 与 mask 会共享几何参数，mask 始终使用最近邻插值。这些选择都会保存在
+checkpoint 配置中。
 
 ## 避免数据泄漏
 

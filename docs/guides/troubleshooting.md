@@ -41,8 +41,14 @@ a time. Changing data, model, and device together hides the cause.
 | --- | --- | --- |
 | High pixel accuracy, poor mask | Background dominates | Read pet IoU, Dice, and error overlays |
 | Manifest not found | Checkpoint refers to a relative manifest directory | Run from the repository root or restore that manifest set |
+| Manifest hash mismatch | The current split differs from the one recorded during training | Restore the original manifest; do not interpret an old checkpoint on a new split |
+| Checkpoint is not weights-only safe | File uses a legacy schema or comes from an unknown source | Do not load it directly; migrate only in an isolated trusted environment or retrain |
 | Wrong output size | Network and source image sizes were confused | Use Predictor, which restores source dimensions |
 | Color output fails as training data | Color/overlay files are display artifacts | Train only from original single-channel class masks |
+
+Only load checkpoints produced by the current project or migrated in a trusted
+environment. The CLI uses PyTorch `weights_only=True` and does not silently fall
+back to unsafe pickle deserialization.
 
 When opening an issue, include the complete command, first error, package version,
 and resolved config. Add a privacy-safe preview and mask unique values for data

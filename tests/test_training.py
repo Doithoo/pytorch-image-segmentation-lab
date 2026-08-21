@@ -62,7 +62,7 @@ def test_fit_writes_best_last_metrics_and_resumes(paired_data: Path, tmp_path: P
     assert run_metadata["python"]
     assert run_metadata["pytorch"]
     assert run_metadata["torchvision"]
-    assert run_metadata["manifest_sha256"].keys() == {"train", "valid"}
+    assert run_metadata["manifest_sha256"].keys() == {"train", "valid", "test"}
     assert run_metadata["parameter_count"] > 0
     assert run_metadata["trainable_parameter_count"] == run_metadata["parameter_count"]
     assert run_metadata["model"]["name"] == "unet_small"

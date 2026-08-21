@@ -88,8 +88,10 @@ test  619642b927ecd138e3bc068340b5c30231ea705e48d27420cc9d2e20034b757c
 5291b96d17df4c197e46ab5ff4f3d9b36b58b0aba63d334f314681bebc3f9e16
 ```
 
-仓库保留配置、元数据、指标和精选图片。发布 checkpoint 时应使用 GitHub Release 或
-其他模型制品存储，并附上上述哈希；本地也可以运行：
+仓库保留配置、元数据、指标和精选图片。该历史文件早于当前 weights-only checkpoint schema，
+不要直接交给当前 CLI；只能在隔离且可信的旧环境中迁移，或重新运行以获得当前安全格式。
+发布历史 checkpoint 时应使用 GitHub Release 或其他模型制品存储，并附上上述哈希；本地
+重新运行：
 
 ```bash
 uv run python scripts/download_data.py --data-dir data/raw

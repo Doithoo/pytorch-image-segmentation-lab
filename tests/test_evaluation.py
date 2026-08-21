@@ -1,10 +1,14 @@
 import csv
+import hashlib
 import json
 from pathlib import Path
 
+import pytest
+import yaml
 from PIL import Image
 
 from image_segmenter.evaluation.evaluate import evaluate_checkpoint
+from image_segmenter.training.checkpoint import load_checkpoint
 
 
 def test_evaluate_checkpoint_writes_numeric_and_visual_evidence(trained_run: dict[str, Path]) -> None:
@@ -49,6 +53,20 @@ def test_evaluation_records_relative_checkpoint_path(trained_run: dict[str, Path
 
     metrics = json.loads((output / "metrics.json").read_text())
     assert metrics["checkpoint"] == relative_checkpoint.as_posix()
+
+
+def test_evaluation_rejects_manifest_changed_since_training(trained_run: dict[str, Path]) -> None:
+    saved = load_checkpoint(trained_run["checkpoint"])
+    manifest_dir = Path(saved["config"]["data"]["manifest_dir"])
+    metadata_path = manifest_dir / "dataset.yaml"
+    metadata = yaml.safe_load(metadata_path.read_text())
+    valid_manifest = manifest_dir / metadata["manifests"]["valid"]
+    valid_manifest.write_text(valid_manifest.read_text() + "\n")
+    metadata["manifest_sha256"]["valid"] = hashlib.sha256(valid_manifest.read_bytes()).hexdigest()
+    metadata_path.write_text(yaml.safe_dump(metadata, sort_keys=False))
+
+    with pytest.raises(ValueError, match="checkpoint manifest hash.*valid"):
+        evaluate_checkpoint(trained_run["checkpoint"], split="valid", device="cpu")
 
 
 def test_evaluation_removes_stale_visual_outputs(trained_run: dict[str, Path], tmp_path: Path) -> None:

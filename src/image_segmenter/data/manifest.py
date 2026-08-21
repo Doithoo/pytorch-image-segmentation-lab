@@ -63,6 +63,25 @@ class ManifestError(ValueError):
     """Raised after all invalid dataset samples have been collected."""
 
 
+def _class_color(class_id: int) -> tuple[int, int, int]:
+    return ((class_id * 67 + 46) % 256, (class_id * 131 + 64) % 256, (class_id * 197 + 142) % 256)
+
+
+def _schema_from_label_map(label_map: dict[int, int], ignore_index: int = 255) -> LabelSchema:
+    class_ids = sorted(set(label_map.values()))
+    if len(class_ids) < 2 or class_ids != list(range(len(class_ids))):
+        raise ValueError("label_map must map to at least two contiguous classes starting at 0")
+    classes = tuple(
+        ClassDefinition(
+            class_id,
+            ("background", "pet")[class_id] if len(class_ids) == 2 else f"class_{class_id}",
+            (32, 32, 32) if class_id == 0 else ((46, 204, 113) if len(class_ids) == 2 else _class_color(class_id)),
+        )
+        for class_id in class_ids
+    )
+    return LabelSchema(classes=classes, ignore_index=ignore_index)
+
+
 def _audit_exact_duplicates(rows: Sequence[Mapping[str, object]], root: Path) -> None:
     """Reject identical image/mask content appearing in different splits."""
     seen: dict[tuple[str, str], str] = {}
@@ -125,9 +144,9 @@ def _validate_source(
     output: Path,
     label_map: dict[int, int],
     ignore_values: set[int],
+    ignore_index: int = 255,
 ) -> list[_ValidatedSample]:
-    if set(label_map.values()) != {0, 1}:
-        raise ValueError("label_map must map raw values to background 0 and foreground 1")
+    _schema_from_label_map(label_map, ignore_index)
     if set(label_map) & ignore_values:
         raise ValueError("label_map and ignore_values must not overlap")
     images, invalid = _indexed_files(source / "images", IMAGE_SUFFIXES)
@@ -135,7 +154,7 @@ def _validate_source(
     invalid.extend(mask_errors)
     valid_samples: list[_ValidatedSample] = []
     seen_content: dict[tuple[str, str], str] = {}
-    foreground_values = {raw_value for raw_value, class_index in label_map.items() if class_index == 1}
+    foreground_values = {raw_value for raw_value, class_index in label_map.items() if class_index > 0}
     allowed_values = set(label_map) | ignore_values
     empty_foreground_count = 0
 
@@ -204,6 +223,7 @@ def _write_metadata(
     provider_name: str | None = None,
     split_method_name: str | None = None,
     label_schema: LabelSchema | None = None,
+    ignore_index: int = 255,
 ) -> None:
     checksums = {split: _sha256(path) for split, path in paths.items()}
     metadata: dict[str, Any] = {
@@ -237,13 +257,7 @@ def _write_metadata(
         "official_test_stratified_train_valid" if provider == "oxford_pet" else "random"
     )
     if label_schema is None:
-        label_schema = LabelSchema(
-            classes=(
-                ClassDefinition(0, "background", (32, 32, 32)),
-                ClassDefinition(1, "pet", (46, 204, 113)),
-            ),
-            ignore_index=255,
-        )
+        label_schema = _schema_from_label_map(label_map, ignore_index)
     prepared = PreparedDatasetMetadata.create(
         provider=provider,
         split_method=split_method,
@@ -269,6 +283,10 @@ def _write_manifests(
     label_map: dict[int, int],
     ignore_values: set[int],
     audit: dict[str, object] | None = None,
+    *,
+    group_ids: Mapping[str, str] | None = None,
+    label_schema: LabelSchema | None = None,
+    ignore_index: int = 255,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     all_rows: list[dict[str, object]] = []
@@ -284,6 +302,7 @@ def _write_manifests(
                     height=sample.height,
                     breed=breed,
                     source_split=source_split,
+                    group_id=(group_ids or {}).get(sample.sample_id, ""),
                 )
             )
             for sample, breed, source_split in split_items[split]
@@ -294,7 +313,19 @@ def _write_manifests(
         paths[split] = path
     _audit_exact_duplicates(all_rows, output)
     counts = {split: len(items) for split, items in split_items.items()}
-    _write_metadata(output, source, dataset_type, seed, label_map, ignore_values, paths, counts, audit)
+    _write_metadata(
+        output,
+        source,
+        dataset_type,
+        seed,
+        label_map,
+        ignore_values,
+        paths,
+        counts,
+        audit,
+        label_schema=label_schema,
+        ignore_index=ignore_index,
+    )
     return paths
 
 
@@ -305,13 +336,14 @@ def prepare_paired_manifests(
     seed: int,
     label_map: dict[int, int],
     ignore_values: set[int],
+    ignore_index: int = 255,
 ) -> dict[str, Path]:
     """Create deterministic random splits for a generic paired dataset."""
     source = Path(data_dir).resolve()
     output = Path(manifest_dir).resolve()
     if len(split_ratios) != 3 or any(value < 0 for value in split_ratios) or abs(sum(split_ratios) - 1.0) > 1e-9:
         raise ValueError("split_ratios must contain three non-negative values summing to 1")
-    samples = _validate_source(source, output, label_map, ignore_values)
+    samples = _validate_source(source, output, label_map, ignore_values, ignore_index)
     random.Random(seed).shuffle(samples)
     train_count = math.floor(len(samples) * split_ratios[0])
     valid_count = math.floor(len(samples) * split_ratios[1])
@@ -329,7 +361,16 @@ def prepare_paired_manifests(
     annotated = {
         split: [(sample, "", "provided") for sample in split_values] for split, split_values in split_samples.items()
     }
-    return _write_manifests(output, source, annotated, "paired-directory", seed, label_map, ignore_values)
+    return _write_manifests(
+        output,
+        source,
+        annotated,
+        "paired-directory",
+        seed,
+        label_map,
+        ignore_values,
+        ignore_index=ignore_index,
+    )
 
 
 def _read_oxford_split(path: Path) -> list[str]:
@@ -362,11 +403,12 @@ def prepare_oxford_manifests(
     seed: int,
     label_map: dict[int, int],
     ignore_values: set[int],
+    ignore_index: int = 255,
 ) -> dict[str, Path]:
     """Preserve official test data and split trainval within every breed."""
     source = Path(data_dir).resolve()
     output = Path(manifest_dir).resolve()
-    samples = _validate_source(source, output, label_map, ignore_values)
+    samples = _validate_source(source, output, label_map, ignore_values, ignore_index)
     by_id = {sample.sample_id: sample for sample in samples}
     trainval_ids = _read_oxford_split(source / "annotations" / "trainval.txt")
     test_ids = _read_oxford_split(source / "annotations" / "test.txt")
@@ -408,4 +450,5 @@ def prepare_oxford_manifests(
         label_map,
         ignore_values,
         audit,
+        ignore_index=ignore_index,
     )

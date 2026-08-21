@@ -189,5 +189,6 @@ uv run twine check dist/*
 ```
 
 Tests use local synthetic fixtures and never download Oxford data or pretrained
-weights. Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
+weights. Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes and
+report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue.
 Licensed under the [MIT License](LICENSE).

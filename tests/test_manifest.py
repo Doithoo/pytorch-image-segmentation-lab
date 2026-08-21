@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from image_segmenter.data import read_dataset_metadata
 from image_segmenter.data.manifest import ManifestError, prepare_oxford_manifests, prepare_paired_manifests
 
 
@@ -22,6 +23,24 @@ def test_prepare_pairs_and_splits_deterministically(paired_data: Path, tmp_path:
         row["sample_id"] for row in _rows(second / "train.csv")
     ]
     assert b"\r\n" not in (first / "train.csv").read_bytes()
+
+
+def test_paired_manifests_support_contiguous_multiclass_labels(paired_data: Path, tmp_path: Path) -> None:
+    output = tmp_path / "multiclass"
+    prepare_paired_manifests(
+        paired_data,
+        output,
+        [0.8, 0.1, 0.1],
+        seed=7,
+        label_map={1: 1, 2: 0, 3: 2},
+        ignore_values=set(),
+        ignore_index=254,
+    )
+
+    metadata = read_dataset_metadata(output / "dataset.yaml")
+    assert metadata.label_schema.num_classes == 3
+    assert [item.name for item in metadata.label_schema.classes] == ["class_0", "class_1", "class_2"]
+    assert metadata.label_schema.ignore_index == 254
 
 
 def test_prepare_rejects_ratios_that_produce_an_empty_split(paired_data: Path, tmp_path: Path) -> None:

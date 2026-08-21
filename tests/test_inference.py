@@ -27,6 +27,20 @@ def test_predictor_restores_original_size_and_writes_distinct_outputs(
     assert paths["overlay"].name == "prediction.overlay.png"
 
 
+def test_predictor_rejects_output_directory_inside_input(trained_run: dict[str, Path], tmp_path: Path) -> None:
+    predictor = Predictor(trained_run["checkpoint"], device="cpu")
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    Image.new("RGB", (16, 16)).save(input_dir / "sample.png")
+
+    try:
+        predictor.predict_directory(input_dir, input_dir / "predictions")
+    except ValueError as exc:
+        assert "outside the input directory" in str(exc)
+    else:
+        raise AssertionError("expected nested output directory to be rejected")
+
+
 def test_predictor_rejects_overwriting_input(trained_run: dict[str, Path]) -> None:
     predictor = Predictor(trained_run["checkpoint"], device="cpu")
     try:

@@ -41,8 +41,13 @@
 | --- | --- | --- |
 | pixel accuracy 高但图很差 | 背景像素占多数 | 看 pet IoU、Dice 和错误叠加图 |
 | 找不到 manifest | checkpoint 保存的是相对 manifest 目录 | 从仓库根目录运行，或恢复对应的 `data/manifests` |
+| manifest hash 不一致 | 当前 split 不是训练时记录的成员集合 | 恢复原始 manifest；不要用新切分解释旧 checkpoint |
+| checkpoint 不是 weights-only safe | 文件来自旧 schema 或未知来源 | 不要直接加载；只在隔离且可信的旧环境中迁移或重新训练 |
 | 输出尺寸不对 | 网络尺寸与原图尺寸混淆 | 使用 predictor 生成输出，它会还原原图尺寸 |
 | 彩色图不能重新训练 | `.color.png`/`.overlay.png` 是展示产物 | 训练只读取原始单通道类别掩码 |
+
+只加载本项目当前版本生成或经过可信迁移的 checkpoint。CLI 使用 PyTorch
+`weights_only=True`，不会为了兼容未知 pickle 自动退回不安全反序列化。
 
 ## 仍然无法定位时
 

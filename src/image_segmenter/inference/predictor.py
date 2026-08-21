@@ -83,8 +83,8 @@ class Predictor:
         destination = Path(output_dir).resolve()
         if not source.is_dir():
             raise FileNotFoundError(f"input directory not found: {source}")
-        if source == destination:
-            raise ValueError("prediction output directory would overwrite input images")
+        if source == destination or destination.is_relative_to(source):
+            raise ValueError("prediction output directory must be outside the input directory")
         images = sorted(
             path for path in source.rglob("*") if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
         )

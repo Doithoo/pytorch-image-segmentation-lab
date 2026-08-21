@@ -299,8 +299,10 @@ def _validate_config(cfg: ExperimentConfig) -> None:
     ):
         raise ValueError("invalid data.label_map; keys and values must be integers")
     mapped_classes = set(cfg.data.label_map.values())
-    if mapped_classes != set(range(max(mapped_classes) + 1)):
-        raise ValueError("invalid data.label_map; mapped classes must be contiguous integers starting at 0")
+    if len(mapped_classes) < 2 or mapped_classes != set(range(max(mapped_classes) + 1)):
+        raise ValueError(
+            "invalid data.label_map; mapped classes must contain at least two contiguous integers starting at 0"
+        )
     if not isinstance(cfg.data.ignore_values, list) or any(
         not isinstance(value, int) for value in cfg.data.ignore_values
     ):

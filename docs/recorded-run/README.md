@@ -37,7 +37,9 @@ Read the [resolved config](reference-unet-config.yaml),
 The current repository tree does not keep the 89 MB checkpoint. Its recorded
 SHA-256 is
 `5291b96d17df4c197e46ab5ff4f3d9b36b58b0aba63d334f314681bebc3f9e16`.
-Distribute it as a release/model artifact with that hash, or reproduce it:
+That historical file predates the weights-only checkpoint schema and must not be
+opened directly by the current CLI. Migrate it only in an isolated trusted legacy
+environment, or reproduce it to obtain a current safe checkpoint:
 
 ```bash
 uv run python scripts/download_data.py --data-dir data/raw

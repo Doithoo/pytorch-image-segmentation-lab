@@ -17,13 +17,14 @@ U-Net width is `model.params.base_channels`; `model.expected_num_classes` is
 checked against `dataset.yaml`. Optional SMP models require `model-zoo`.
 
 `loss` combines non-negative CE and foreground Dice weights, with at least one
-positive. `ignore_index` must differ from classes 0/1 and match mapped targets.
+positive. `ignore_index` must differ from every mapped class and match prepared
+dataset metadata.
 
 `train` contains epochs, batch, AdamW LR/weight decay, `none` or `cosine`
 scheduler, optional gradient clipping, AMP, selected metric, and seed. A cosine
 checkpoint cannot be resumed with a changed planned epoch total.
 
 Top-level `device` selects the runtime, while `output_dir` and `run_name` control
-artifact paths. Give every experiment a distinct run name. `log_level` is
-parsed and validated for configuration compatibility, but the current CLI does
-not yet use it to change output verbosity.
+artifact paths. Give every experiment a distinct run name. `log_level` values
+`debug` and `info` show per-epoch progress; `warning`, `error`, and `critical`
+suppress that progress while preserving command results and errors.

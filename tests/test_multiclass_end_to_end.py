@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 
 import numpy as np
-import torch
 from PIL import Image
 
 from image_segmenter.config import config_from_dict
@@ -135,4 +134,4 @@ def test_three_class_prepare_train_evaluate_predict_flow(tmp_path: Path) -> None
     raw = np.asarray(Image.open(outputs["raw"]))
     assert raw.shape == (16, 16)
     assert set(np.unique(raw)) <= {0, 1, 2}
-    assert torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)["label_schema_sha256"]
+    assert load_checkpoint(run_dir / "best.pt")["label_schema_sha256"]
