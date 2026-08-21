@@ -58,13 +58,16 @@ def git_revision() -> str | None:
 
 def _safe_numpy_rng_state() -> dict[str, Any]:
     """Encode NumPy's RNG state using only weights-only-safe values."""
-    state = np.random.get_state()
+    state = np.random.get_state(legacy=True)
+    if not isinstance(state, tuple):
+        raise RuntimeError("NumPy did not return a legacy tuple RNG state")
+    algorithm, keys, position, has_gaussian, cached_gaussian = state
     return {
-        "algorithm": state[0],
-        "state": torch.from_numpy(state[1].copy()),
-        "position": int(state[2]),
-        "has_gaussian": int(state[3]),
-        "cached_gaussian": float(state[4]),
+        "algorithm": algorithm,
+        "state": torch.from_numpy(keys.copy()),
+        "position": int(position),
+        "has_gaussian": int(has_gaussian),
+        "cached_gaussian": float(cached_gaussian),
     }
 
 
