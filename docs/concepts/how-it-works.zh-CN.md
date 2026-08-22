@@ -3,7 +3,7 @@
 [English](how-it-works.md) | [文档导航](../README.zh-CN.md)
 
 本文按数据流解释“做了什么”和“为什么这样做”。第一次操作请跟随
-[学习路线](../tutorial/learning-path.zh-CN.md)，需要理解设计原因时再回来查阅。
+[实践路线](../tutorial/learning-path.zh-CN.md)，需要理解设计原因时再回来查阅。
 
 ## 总览
 

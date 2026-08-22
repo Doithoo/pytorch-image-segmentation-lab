@@ -7,7 +7,7 @@ want a structured learning route or need to look up one part of the project.
 
 ## Start here
 
-- [Learning path](tutorial/learning-path.md): move from tensor shapes to a
+- [Practice path](tutorial/learning-path.md): move from tensor shapes to a
   controlled model comparison.
 - [Tutorial index](tutorial/README.md): choose one of the six practical chapters
   by the question you are trying to answer.

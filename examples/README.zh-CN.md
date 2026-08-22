@@ -1,6 +1,6 @@
 # 五个先运行的小程序
 
-[English](README.md) | [学习路线](../docs/tutorial/learning-path.zh-CN.md)
+[English](README.md) | [实践路线](../docs/tutorial/learning-path.zh-CN.md)
 
 这些文件把正式工程中的一件事单独拿出来。建议按编号运行，先猜输出，再对照代码。它们
 不是另一套训练框架；每个文件顶部都指向对应的正式模块。

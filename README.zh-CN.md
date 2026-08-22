@@ -1,4 +1,4 @@
-# PyTorch 图像分割学习实验室
+# PyTorch 图像分割实践项目
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue)](pyproject.toml)
@@ -128,10 +128,10 @@ IoU 为 `0.902836`；在 3,669 张官方测试图片上，宠物 IoU 为 `0.9066
 失败案例。当前仓库树不再保留 89 MB 的模型 checkpoint；重新训练时比较配置、manifest
 哈希和结果趋势，另行获得原 checkpoint 时再用记录的 SHA-256 校验文件。
 
-## 接着学什么
+## 接下来怎么做
 
 - 从[文档导航](docs/README.zh-CN.md)按用途选择操作指南、查询资料、原理说明或实测记录。
-- 按[学习路线](docs/tutorial/learning-path.zh-CN.md)逐步实践，或在[教程索引](docs/tutorial/README.zh-CN.md)中按问题选择章节。
+- 按[实践路线](docs/tutorial/learning-path.zh-CN.md)逐步实践，或在[教程索引](docs/tutorial/README.zh-CN.md)中按问题选择章节。
 - 用[代码导览](docs/concepts/code-tour.zh-CN.md)追踪一张图片，再用[原理说明](docs/concepts/how-it-works.zh-CN.md)理解背后的设计。
 - 命令、数据、训练或推理失败时直接查[排错指南](docs/guides/troubleshooting.zh-CN.md)。
 
@@ -175,7 +175,7 @@ uv run segment --help
 ```text
 examples/                    先运行和阅读的 5 个小程序
 configs/                     入门、参考和模型对照配置
-docs/                        学习路线、教程、原理和实验指南
+docs/                        实践路线、教程、原理和实验指南
 scripts/                     下载、预览和绘图工具
 src/image_segmenter/         安装后运行的应用和可复用代码
 tests/                       单元、集成、CLI 和端到端测试

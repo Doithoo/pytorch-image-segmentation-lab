@@ -7,7 +7,7 @@
 
 ## 从这里开始
 
-- [学习路线](tutorial/learning-path.zh-CN.md)：从张量形状逐步走到一次受控模型对比。
+- [实践路线](tutorial/learning-path.zh-CN.md)：从张量形状逐步走到一次受控模型对比。
 - [教程索引](tutorial/README.zh-CN.md)：根据当前问题选择六章实操教程中的一章。
 
 ## 操作指南

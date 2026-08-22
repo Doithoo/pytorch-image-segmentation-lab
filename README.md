@@ -1,4 +1,4 @@
-# PyTorch Image Segmentation Lab
+# PyTorch Image Segmentation Project
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue)](pyproject.toml)
@@ -15,9 +15,9 @@ only prediction.
 
 ## Who this is for
 
-This lab is for learners who know basic Python, tensors, loss, and gradients but
+This project is for learners who know basic Python, tensors, loss, and gradients but
 have not completed an image segmentation project. You do not need to know U-Net
-or read a paper first. The guided path takes roughly **8–12 hours**.
+or read a paper first. The practice path takes roughly **8–12 hours**.
 
 The first path is binary segmentation: class 0 is background and class 1 is pet.
 After that path works, the same pipeline supports multiclass label schemas, five
@@ -120,11 +120,11 @@ metadata, manifest hashes, metric tables, and failure examples. The current
 repository tree does not keep the 89 MB checkpoint; reproduce it with the
 published config and verify the recorded SHA-256 when sharing a release artifact.
 
-## Continue learning
+## Continue with the project
 
 - Open the [documentation index](docs/README.md) to choose a guide, reference,
   concept, or recorded result by purpose.
-- Follow the [learning path](docs/tutorial/learning-path.md), or choose one
+- Follow the [practice path](docs/tutorial/learning-path.md), or choose one
   chapter from the [tutorial index](docs/tutorial/README.md).
 - Trace one sample with the [code tour](docs/concepts/code-tour.md), then use
   [how it works](docs/concepts/how-it-works.md) for the underlying decisions.

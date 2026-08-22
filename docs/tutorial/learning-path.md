@@ -2,7 +2,7 @@
 
 [简体中文](learning-path.zh-CN.md) | [Documentation](../README.md)
 
-This 8–12 hour path is for a learner who knows basic tensors, loss, and
+This 8–12 hour path is for a reader who knows basic tensors, loss, and
 gradients but has not completed pixel-wise prediction. Run each small step,
 inspect its output, and explain it before starting a longer run.
 
