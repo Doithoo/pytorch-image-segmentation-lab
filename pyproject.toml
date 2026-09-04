@@ -32,9 +32,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.3,<10",
-    "ruff>=0.6,<1",
+    "ruff>=0.16.5,<1",
     "pre-commit>=3,<5",
-    "build>=1.2,<2",
+    "build>=1.6.0,<2",
     "setuptools>=83,<85",
     "twine>=7.0.0,<8",
     "matplotlib>=3.6,<4",
