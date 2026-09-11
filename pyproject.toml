@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "torch>=2.6,<3",
+    "torch>=2.14.0,<3",
     "torchvision>=0.21,<1",
     "numpy>=1.24,<3",
     "pillow>=12.3,<13",
@@ -32,9 +32,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.3,<10",
-    "ruff>=0.6,<1",
+    "ruff>=0.16.6,<1",
     "pre-commit>=3,<5",
-    "build>=1.2,<2",
+    "build>=1.6.0,<2",
     "setuptools>=83,<85",
     "twine>=7.0.0,<8",
     "matplotlib>=3.6,<4",
